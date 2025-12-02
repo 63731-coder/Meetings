@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+
+  # Base Graphe (Utilisateurs & Rencontres)
+
+  neo4j:
+
+    image: neo4j:5
+
+    container_name: projet_neo4j
+
+    ports:
+
+      - "7474:7474" # HTTP
+
+      - "7687:7687" # Bolt (Java)
+
+    environment:
+
+      - NEO4J_AUTH=neo4j/password # Change le mot de passe ici
+
+
+
+  # Base Document (Profils & Intérêts)
+
+  mongodb:
+
+    image: mongo:latest
+
+    container_name: projet_mongo
+
+    ports:
+
+      - "27017:27017"
+
+
+
+  # Base Clé-Valeur (Points)
+
+  redis:
+
+    image: redis:latest
+
+    container_name: projet_redis
+
+    ports:
+
+      - "6379:6379"
