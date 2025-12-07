@@ -1,19 +1,20 @@
 package be.esi.rencontres.user.service;
 
 import be.esi.rencontres.user.model.mongo.UserDoc;
+import be.esi.rencontres.user.model.neo4j.UserNode;
 import be.esi.rencontres.user.repository.UserMongoRepository;
+import be.esi.rencontres.user.repository.UserNeo4jRepository;
 import org.springframework.stereotype.Service;
-import org.neo4j.driver.Driver;
 
 @Service
 public class UserService {
 
-    private final UserMongoRepository userRepository;
-    private final Driver neo4jDriver;
+    private final UserMongoRepository userMongoRepository;
+    private final UserNeo4jRepository userNeo4jRepository;
 
-    public UserService(UserMongoRepository userRepository, Driver neo4jDriver) {
-        this.userRepository = userRepository;
-        this.neo4jDriver = neo4jDriver;
+    public UserService(UserMongoRepository userMongoRepository, UserNeo4jRepository userNeo4jRepository) {
+        this.userMongoRepository = userMongoRepository;
+        this.userNeo4jRepository = userNeo4jRepository;
     }
 
     /**
@@ -23,10 +24,7 @@ public class UserService {
      * @return UserDoc - l'utilisateur enregistré (-> MongoDB)
      */
     public UserDoc registerUser(UserDoc user) {
-        // Sauvegarde dans MongoDB le profil utilisateur
-        UserDoc savedUser = userRepository.save(user);
-
-        // Création du nœud Neo4j (Graphe social)
+        UserDoc savedUser = userMongoRepository.save(user);
         createNeo4jNode(savedUser.getId());
 
         return savedUser;
@@ -38,18 +36,7 @@ public class UserService {
      * @param userId l'ID de l'utilisateur
      */
     private void createNeo4jNode(String userId) {
-        String cypherQuery = "CREATE (u:User {id: $userId})";
-
-        try (org.neo4j.driver.Session session = neo4jDriver.session()) {
-            session.executeWrite(tx -> {
-                tx.run(cypherQuery,
-                        // Map pour passer le paramètre userId de manière sécurisée
-                        java.util.Map.of("userId", userId));
-                return null; // Les transactions d'écriture ne retournent souvent pas de résultat ici
-            });
-        } catch (Exception e) {
-            System.err.println("Erreur lors de la création du noeud Neo4j pour l'utilisateur " + userId
-                    + ". La synchronisation a échoué !: " + e.getMessage());
-        }
+        UserNode userNode = new UserNode(userId);
+        userNeo4jRepository.save(userNode);
     }
 }
