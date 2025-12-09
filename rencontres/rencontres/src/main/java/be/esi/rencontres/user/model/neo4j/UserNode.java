@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.neo4j.core.schema.Id;
 import org.springframework.data.neo4j.core.schema.Node;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -14,4 +16,10 @@ public class UserNode {
 
     @Id
     private String id;
+    
+    private String username;
+    
+    private String bio;
+    
+    private List<String> interests;
 }

@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-RencontresApplication<rencontres>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "be.esi.rencontres.RencontresApplication",
+            "projectName": "rencontres",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

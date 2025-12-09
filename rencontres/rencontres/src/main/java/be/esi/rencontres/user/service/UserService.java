@@ -6,6 +6,8 @@ import be.esi.rencontres.user.repository.UserMongoRepository;
 import be.esi.rencontres.user.repository.UserNeo4jRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class UserService {
 
@@ -25,18 +27,28 @@ public class UserService {
      */
     public UserDoc registerUser(UserDoc user) {
         UserDoc savedUser = userMongoRepository.save(user);
-        createNeo4jNode(savedUser.getId());
+        createNeo4jNode(savedUser);
 
         return savedUser;
     }
 
     /**
-     * Crée un nœud User dans Neo4j en utilisant uniquement l'ID.
+     * Crée un nœud User dans Neo4j avec toutes les informations.
      *
-     * @param userId l'ID de l'utilisateur
+     * @param user l'utilisateur avec toutes ses données
      */
-    private void createNeo4jNode(String userId) {
-        UserNode userNode = new UserNode(userId);
+    private void createNeo4jNode(UserDoc user) {
+        UserNode userNode = new UserNode(user.getId(), user.getUsername(), user.getBio(), user.getInterests());
         userNeo4jRepository.save(userNode);
+    }
+
+    /**
+     * Recherche les utilisateurs ayant un centre d'intérêt spécifique
+     *
+     * @param interest le centre d'intérêt à rechercher
+     * @return liste des utilisateurs correspondants
+     */
+    public List<UserDoc> findUsersByInterest(String interest) {
+        return userMongoRepository.findByInterestsContainingIgnoreCase(interest);
     }
 }
