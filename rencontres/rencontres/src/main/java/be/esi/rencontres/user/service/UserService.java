@@ -28,6 +28,7 @@ public class UserService {
     public UserDoc registerUser(UserDoc user) {
         UserDoc savedUser = userMongoRepository.save(user);
         createNeo4jNode(savedUser);
+        // Les relations entre utilisateurs seront créées via les meetings
 
         return savedUser;
     }
@@ -52,19 +53,36 @@ public class UserService {
      * Recherche les utilisateurs ayant un centre d'intérêt spécifique
      *
      * @param interest le centre d'intérêt à rechercher
+     * @param excludeUserId ID de l'utilisateur à exclure des résultats (peut être null)
      * @return liste des utilisateurs correspondants
      */
-    public List<UserDoc> findUsersByInterest(String interest) {
-        return userMongoRepository.findByInterestsContainingIgnoreCase(interest);
+    public List<UserDoc> findUsersByInterest(String interest, String excludeUserId) {
+        List<UserDoc> users = userMongoRepository.findByInterestsContainingIgnoreCase(interest);
+        if (excludeUserId != null) {
+            users = users.stream()
+                    .filter(user -> !user.getId().equals(excludeUserId))
+                    .toList();
+        }
+        return users;
     }
 
     /**
-     * Recherche les utilisateurs par ville (localisation)
+     * Recherche les utilisateurs par ville (localisation) en utilisant Neo4j
+     * Retourne les documents MongoDB correspondants
      *
      * @param localisation la ville à rechercher
+     * @param excludeUserId ID de l'utilisateur à exclure des résultats (peut être null)
      * @return liste des utilisateurs correspondants
      */
-    public List<UserDoc> findUsersByLocalisation(String localisation) {
-        return userMongoRepository.findByLocalisationContainingIgnoreCase(localisation);
+    public List<UserDoc> findUsersByLocalisation(String localisation, String excludeUserId) {
+        // Utiliser Neo4j pour trouver les utilisateurs par ville
+        List<UserNode> nodesInCity = userNeo4jRepository.findByLocalisationIgnoreCase(localisation);
+        
+        // Récupérer les profils complets depuis MongoDB
+        List<String> userIds = nodesInCity.stream()
+                .map(UserNode::getId)
+                .filter(id -> excludeUserId == null || !id.equals(excludeUserId))
+                .toList();
+        return userMongoRepository.findAllById(userIds);
     }
 }

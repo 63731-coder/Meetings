@@ -27,4 +27,7 @@ public class UserDoc {
 
     @Field("localisation")
     private String localisation;
+
+    @Field("password")
+    private String password;
 }

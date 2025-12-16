@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscription - Rencontres</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .alert.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .switch-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+
+        .switch-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .switch-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>📝 Créer un compte</h1>
+            <div id="createAlert" class="alert"></div>
+            <form id="createUserForm">
+                <div class="form-group">
+                    <label for="username">Nom d'utilisateur</label>
+                    <input type="text" id="username" name="username" required
+                           placeholder="Choisissez un nom d'utilisateur">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Mot de passe</label>
+                    <input type="password" id="password" name="password" required
+                           placeholder="Choisissez un mot de passe">
+                </div>
+
+                <div class="form-group">
+                    <label for="bio">Biographie</label>
+                    <textarea id="bio" name="bio" required
+                              placeholder="Parlez-nous de vous..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="interests">Centres d'intérêt (séparés par des virgules)</label>
+                    <input type="text" id="interests" name="interests" required
+                           placeholder="ex: Voyages, Lecture, Musique, Sport">
+                </div>
+
+                <div class="form-group">
+                    <label for="localisation">Ville</label>
+                    <input type="text" id="localisation" name="localisation" required
+                           placeholder="ex: Paris, Lyon, Marseille">
+                </div>
+
+                <button type="submit">Créer mon compte</button>
+            </form>
+
+            <div class="switch-link">
+                Déjà un compte ? <a href="/">Se connecter</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const bio = document.getElementById('bio').value.trim();
+            const interestsStr = document.getElementById('interests').value.trim();
+            const interests = interestsStr.split(',').map(i => i.trim()).filter(i => i);
+            const localisation = document.getElementById('localisation').value.trim();
+
+            if (interests.length === 0) {
+                showAlert('Veuillez entrer au moins un centre d\'intérêt', 'error');
+                return;
+            }
+            if (!localisation) {
+                showAlert('Veuillez entrer une ville', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username,
+                        password,
+                        bio,
+                        interests,
+                        localisation
+                    })
+                });
+
+                if (response.ok) {
+                    showAlert(`✅ Compte créé avec succès ! Redirection...`, 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1500);
+                } else {
+                    const error = await response.json();
+                    showAlert(`❌ Erreur: ${error.message || 'Impossible de créer le compte'}`, 'error');
+                }
+            } catch (error) {
+                showAlert(`❌ Erreur réseau: ${error.message}`, 'error');
+            }
+        });
+
+        function showAlert(message, type) {
+            const alert = document.getElementById('createAlert');
+            alert.textContent = message;
+            alert.className = `alert ${type}`;
+            alert.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

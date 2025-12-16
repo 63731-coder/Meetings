@@ -3,6 +3,7 @@ package be.esi.rencontres.user.controller;
 import be.esi.rencontres.user.dto.UserDTO;
 import be.esi.rencontres.user.model.mongo.UserDoc;
 import be.esi.rencontres.user.service.UserService;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,11 +27,27 @@ public class UserController {
     }
 
     /**
-     * Route GET / : Affiche la page Thymeleaf
+     * Route GET / : Affiche la page de login
      */
     @GetMapping("/")
     public String index() {
-        return "users";
+        return "login";
+    }
+
+    /**
+     * Route GET /register : Affiche la page d'inscription
+     */
+    @GetMapping("/register")
+    public String register() {
+        return "register";
+    }
+
+    /**
+     * Route GET /search : Affiche la page de recherche (protectée)
+     */
+    @GetMapping("/search")
+    public String search() {
+        return "search";
     }
 
     /**
@@ -49,6 +66,7 @@ public class UserController {
         userDoc.setBio(userDTO.getBio());
         userDoc.setInterests(userDTO.getInterests());
         userDoc.setLocalisation(userDTO.getLocalisation());
+        userDoc.setPassword(userDTO.getPassword());
 
         UserDoc savedUser = userService.registerUser(userDoc);
 
@@ -67,7 +85,8 @@ public class UserController {
     @ResponseBody
     public ResponseEntity<List<UserDoc>> search(
             @RequestParam(required = false) String interest,
-            @RequestParam(required = false) String localisation) {
+            @RequestParam(required = false) String localisation,
+            HttpSession session) {
 
         String trimmedInterest = interest != null ? interest.trim() : null;
         String trimmedLocalisation = localisation != null ? localisation.trim() : null;
@@ -85,10 +104,13 @@ public class UserController {
             return ResponseEntity.badRequest().build();
         }
 
+        // Récupérer l'ID de l'utilisateur connecté pour l'exclure des résultats
+        String currentUserId = (String) session.getAttribute("userId");
+
         if (hasInterest) {
-            return ResponseEntity.ok(userService.findUsersByInterest(trimmedInterest));
+            return ResponseEntity.ok(userService.findUsersByInterest(trimmedInterest, currentUserId));
         } else {
-            return ResponseEntity.ok(userService.findUsersByLocalisation(trimmedLocalisation));
+            return ResponseEntity.ok(userService.findUsersByLocalisation(trimmedLocalisation, currentUserId));
         }
     }
 }

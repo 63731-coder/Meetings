@@ -24,4 +24,7 @@ public class UserDTO {
     private List<String> interests;
 
     private String localisation;
+
+    @NotBlank(message = "Password cannot be empty")
+    private String password;
 }
