@@ -222,18 +222,32 @@
                                placeholder="ex: Voyages, Lecture, Musique, Sport">
                     </div>
 
+                    <div class="form-group">
+                        <label for="localisation">Ville: </label>
+                        <input type="text" id="localisation" name="localisation" required
+                               placeholder="ex: Paris, Lyon, Marseille">
+                    </div>
+
                     <button type="submit">Créer le Profil</button>
                 </form>
             </div>
 
             <!-- FORMULAIRE RECHERCHE -->
             <div class="card">
-                <h2>🔍 Rechercher par Centre d'Intérêt</h2>
+                <h2>🔍 Rechercher</h2>
                 <div id="searchAlert" class="alert"></div>
                 <form id="searchForm">
                     <div class="form-group">
-                        <label for="searchInterest">Centre d'intérêt</label>
-                        <input type="text" id="searchInterest" name="searchInterest" required
+                        <label for="searchType">Filtrer par</label>
+                        <select id="searchType" name="searchType">
+                            <option value="interest" selected>Centre d'intérêt</option>
+                            <option value="localisation">Ville</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label id="searchLabel" for="searchQuery">Centre d'intérêt</label>
+                        <input type="text" id="searchQuery" name="searchQuery" required
                                placeholder="ex: Musique, Sport, Voyage...">
                     </div>
 
@@ -260,9 +274,14 @@
             const bio = document.getElementById('bio').value.trim();
             const interestsStr = document.getElementById('interests').value.trim();
             const interests = interestsStr.split(',').map(i => i.trim()).filter(i => i);
+            const localisation = document.getElementById('localisation').value.trim();
 
             if (interests.length === 0) {
                 showAlert('createAlert', 'Veuillez entrer au moins un centre d\'intérêt', 'error');
+                return;
+            }
+            if (!localisation) {
+                showAlert('createAlert', 'Veuillez entrer une ville', 'error');
                 return;
             }
 
@@ -275,7 +294,8 @@
                     body: JSON.stringify({
                         username,
                         bio,
-                        interests
+                        interests,
+                        localisation
                     })
                 });
 
@@ -292,23 +312,39 @@
             }
         });
 
-        // Recherche par centre d'intérêt
+        // Mise à jour du placeholder selon le type
+        document.getElementById('searchType').addEventListener('change', (e) => {
+            const type = e.target.value;
+            const label = document.getElementById('searchLabel');
+            const input = document.getElementById('searchQuery');
+            if (type === 'localisation') {
+                label.textContent = 'Ville';
+                input.placeholder = 'ex: Paris, Lyon, Marseille...';
+            } else {
+                label.textContent = "Centre d'intérêt";
+                input.placeholder = 'ex: Musique, Sport, Voyage...';
+            }
+        });
+
+        // Recherche par centre d'intérêt ou par ville
         document.getElementById('searchForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const searchInterest = document.getElementById('searchInterest').value.trim();
+            const type = document.getElementById('searchType').value;
+            const query = document.getElementById('searchQuery').value.trim();
 
-            if (!searchInterest) {
-                showAlert('searchAlert', 'Veuillez entrer un centre d\'intérêt', 'error');
+            if (!query) {
+                showAlert('searchAlert', type === 'localisation' ? 'Veuillez entrer une ville' : 'Veuillez entrer un centre d\'intérêt', 'error');
                 return;
             }
 
             try {
-                const response = await fetch(`/api/users/search?interest=${encodeURIComponent(searchInterest)}`);
+                const paramName = type === 'localisation' ? 'localisation' : 'interest';
+                const response = await fetch(`/api/users/search?${paramName}=${encodeURIComponent(query)}`);
 
                 if (response.ok) {
                     const users = await response.json();
-                    displayResults(users, searchInterest);
+                    displayResults(users, query, type);
                 } else {
                     showAlert('searchAlert', 'Erreur lors de la recherche', 'error');
                 }
@@ -330,20 +366,20 @@
             }
         }
 
-        function displayResults(users, searchTerm) {
+        function displayResults(users, searchTerm, type) {
             const resultContainer = document.getElementById('resultContainer');
 
             if (users.length === 0) {
                 resultContainer.innerHTML = `
                     <p class="no-results">
-                        Aucun utilisateur trouvé avec le centre d'intérêt: <strong>"${searchTerm}"</strong>
+                        Aucun utilisateur trouvé avec ${type === 'localisation' ? 'la ville' : "le centre d'intérêt"}: <strong>"${searchTerm}"</strong>
                     </p>
                 `;
                 return;
             }
 
             let html = `<p style="color: #667eea; margin-bottom: 20px; font-weight: 600;">
-                        ${users.length} utilisateur(s) trouvé(s) pour: <strong>"${searchTerm}"</strong>
+                        ${users.length} utilisateur(s) trouvé(s) pour ${type === 'localisation' ? 'la ville' : "le centre d'intérêt"}: <strong>"${searchTerm}"</strong>
                     </p>
                     <div class="users-grid">`;
 
@@ -353,6 +389,7 @@
                         <h3>👤 ${user.username}</h3>
                         <p><strong>Bio:</strong> ${user.bio}</p>
                         <p><strong>Intérêts:</strong> ${user.interests.join(', ')}</p>
+                        ${user.localisation ? `<p><strong>Ville:</strong> ${user.localisation}</p>` : ''}
                     </div>
                 `;
             });

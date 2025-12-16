@@ -22,4 +22,6 @@ public class UserDTO {
     private String bio;
 
     private List<String> interests;
+
+    private String localisation;
 }

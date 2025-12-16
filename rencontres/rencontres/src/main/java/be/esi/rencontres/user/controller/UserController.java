@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.RestController;
+
 
 import java.util.List;
 
@@ -48,6 +48,7 @@ public class UserController {
         userDoc.setUsername(userDTO.getUsername());
         userDoc.setBio(userDTO.getBio());
         userDoc.setInterests(userDTO.getInterests());
+        userDoc.setLocalisation(userDTO.getLocalisation());
 
         UserDoc savedUser = userService.registerUser(userDoc);
 
@@ -55,15 +56,39 @@ public class UserController {
     }
 
     /**
-     * Route GET /api/users/search : Recherche les utilisateurs par centre d'intérêt
+     * Route GET /api/users/search : Recherche des utilisateurs par centre d'intérêt ou par ville
+     * Fournir exactement un des deux paramètres: interest OU localisation.
      *
-     * @param interest Le centre d'intérêt à rechercher
-     * @return Liste des utilisateurs ayant cet intérêt
+     * @param interest Centre d'intérêt à rechercher (optionnel)
+     * @param localisation     Ville (localisation) à rechercher (optionnel)
+     * @return Liste des utilisateurs correspondants
      */
     @GetMapping("/api/users/search")
     @ResponseBody
-    public ResponseEntity<List<UserDoc>> searchByInterest(@RequestParam String interest) {
-        List<UserDoc> users = userService.findUsersByInterest(interest.trim());
-        return ResponseEntity.ok(users);
+    public ResponseEntity<List<UserDoc>> search(
+            @RequestParam(required = false) String interest,
+            @RequestParam(required = false) String localisation) {
+
+        String trimmedInterest = interest != null ? interest.trim() : null;
+        String trimmedLocalisation = localisation != null ? localisation.trim() : null;
+        if ((trimmedLocalisation == null || trimmedLocalisation.isBlank()) && localisation != null) {
+            trimmedLocalisation = localisation.trim();
+        }
+
+        boolean hasInterest = trimmedInterest != null && !trimmedInterest.isBlank();
+        boolean hasLoc = trimmedLocalisation != null && !trimmedLocalisation.isBlank();
+
+        if (!hasInterest && !hasLoc) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (hasInterest && hasLoc) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        if (hasInterest) {
+            return ResponseEntity.ok(userService.findUsersByInterest(trimmedInterest));
+        } else {
+            return ResponseEntity.ok(userService.findUsersByLocalisation(trimmedLocalisation));
+        }
     }
 }

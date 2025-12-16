@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface UserMongoRepository extends MongoRepository<UserDoc, String> {
     List<UserDoc> findByInterestsContainingIgnoreCase(String interest);
+    List<UserDoc> findByLocalisationContainingIgnoreCase(String localisation);
 }

@@ -38,7 +38,13 @@ public class UserService {
      * @param user l'utilisateur avec toutes ses données
      */
     private void createNeo4jNode(UserDoc user) {
-        UserNode userNode = new UserNode(user.getId(), user.getUsername(), user.getBio(), user.getInterests());
+        UserNode userNode = new UserNode(
+                user.getId(),
+                user.getUsername(),
+                user.getBio(),
+                user.getInterests(),
+                user.getLocalisation()
+        );
         userNeo4jRepository.save(userNode);
     }
 
@@ -50,5 +56,15 @@ public class UserService {
      */
     public List<UserDoc> findUsersByInterest(String interest) {
         return userMongoRepository.findByInterestsContainingIgnoreCase(interest);
+    }
+
+    /**
+     * Recherche les utilisateurs par ville (localisation)
+     *
+     * @param localisation la ville à rechercher
+     * @return liste des utilisateurs correspondants
+     */
+    public List<UserDoc> findUsersByLocalisation(String localisation) {
+        return userMongoRepository.findByLocalisationContainingIgnoreCase(localisation);
     }
 }

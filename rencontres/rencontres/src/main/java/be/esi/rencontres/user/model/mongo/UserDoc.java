@@ -24,4 +24,7 @@ public class UserDoc {
 
     @Field("interests")
     private List<String> interests;
+
+    @Field("localisation")
+    private String localisation;
 }
