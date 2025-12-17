@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Classement - Top 10</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container { max-width: 600px; width: 100%; }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+
+        /* Style du classement */
+        .leaderboard-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+        }
+
+        .leaderboard-item:last-child { border-bottom: none; }
+        .leaderboard-item:hover { background: #f9f9ff; }
+
+        .rank {
+            font-size: 1.5em;
+            font-weight: bold;
+            width: 40px;
+            color: #888;
+        }
+
+        .rank.top-1 { color: #FFD700; text-shadow: 0 2px 4px rgba(0,0,0,0.1); } /* Or */
+        .rank.top-2 { color: #C0C0C0; } /* Argent */
+        .rank.top-3 { color: #CD7F32; } /* Bronze */
+
+        .user-info { flex-grow: 1; }
+        .username { font-weight: bold; font-size: 1.1em; color: #333; }
+        .details { font-size: 0.9em; color: #666; }
+
+        .points {
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <a href="/search" class="back-btn">← Retour</a>
+            <h1>🏆 Top 10 Utilisateurs</h1>
+
+            <ul class="leaderboard-list">
+                <li class="leaderboard-item" th:each="entry, stats : ${leaderboard}">
+                    <div class="rank" 
+                         th:classappend="${stats.index == 0} ? 'top-1' : (${stats.index == 1} ? 'top-2' : (${stats.index == 2} ? 'top-3' : ''))"
+                         th:text="${stats.count}">1</div>
+                    
+                    <div class="user-info">
+                        <div class="username" th:text="${entry.username}">NomUtilisateur</div>
+                        <div class="details">📍 <span th:text="${entry.city}">Ville</span></div>
+                    </div>
+                    
+                    <div class="points">
+                        <span th:text="${entry.score}">0</span> pts
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

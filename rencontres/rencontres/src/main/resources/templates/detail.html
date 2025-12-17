@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Détail Utilisateur - Rencontres</title>
+    <style>
+        /* Mêmes styles de base que les autres pages pour la cohérence */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container { max-width: 800px; width: 100%; }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .profile-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 20px;
+        }
+
+        .avatar-placeholder {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            color: white;
+            margin: 0 auto 20px;
+        }
+
+        h1 { color: #333; margin-bottom: 10px; }
+        .bio { color: #666; font-style: italic; margin-bottom: 15px; }
+        
+        .tags { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .tag {
+            background: #eef2ff;
+            color: #667eea;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        /* Section Rencontre */
+        .meeting-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            margin-top: 30px;
+            border: 1px solid #e9ecef;
+        }
+
+        .meeting-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            text-align: center;
+        }
+
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #333; font-weight: 500; }
+        
+        input[type="text"], input[type="datetime-local"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: translateY(-2px); }
+
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+        }
+        .alert.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <a href="/search" class="back-btn">← Retour</a>
+
+            <div class="profile-header">
+                <div class="avatar-placeholder">👤</div>
+                <h1 th:text="${targetUser.username}">Nom Utilisateur</h1>
+                <p class="bio" th:text="${targetUser.bio}">Biographie de l'utilisateur...</p>
+                <div class="tags">
+                    <span class="tag" th:each="interest : ${targetUser.interests}" th:text="${interest}">Intérêt</span>
+                </div>
+                <p style="margin-top: 10px; color: #888;" th:if="${targetUser.localisation}">
+                    📍 <span th:text="${targetUser.localisation}">Ville</span>
+                </p>
+            </div>
+
+            <div class="meeting-section">
+                <h2>🤝 Organiser une rencontre IRL</h2>
+                <div id="meetingAlert" class="alert"></div>
+                
+                <form id="meetingForm">
+                    <input type="hidden" id="targetUserId" th:value="${targetUser.id}">
+                    
+                    <div class="form-group">
+                        <label for="location">📍 Lieu de la rencontre</label>
+                        <input type="text" id="location" name="location" required 
+                               placeholder="ex: Parc du Cinquantenaire, Le Café Central...">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date">📅 Date et Heure</label>
+                        <input type="datetime-local" id="date" name="date" required>
+                    </div>
+
+                    <button type="submit">Valider la rencontre (+ Points)</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('meetingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const targetUserId = document.getElementById('targetUserId').value;
+            const location = document.getElementById('location').value;
+            const date = document.getElementById('date').value;
+
+            // Récupérer l'ID de l'utilisateur courant (stocké en session via API check)
+            // Note: Pour la démo, on suppose que le back-end gère l'utilisateur connecté via la session HTTP
+            // mais ici on envoie les infos au format JSON attendu par le contrôleur Meeting.
+            
+            try {
+                // 1. D'abord on vérifie qui est connecté pour l'envoyer comme "userId1"
+                const authResp = await fetch('/api/auth/check');
+                if (!authResp.ok) throw new Error("Vous n'êtes pas connecté");
+                const authData = await authResp.json();
+                const currentUserId = authData.userId;
+
+                // 2. Envoi de la requête de création de rencontre
+                const response = await fetch('/api/meetings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId1: currentUserId,
+                        userId2: targetUserId,
+                        location: location,
+                        meetingDate: date
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    // 3. Si succès, on ajoute les points (Appel API Redis)
+                    // (Note: Idéalement le backend fait ça tout seul, mais l'énoncé demande de montrer les interactions)
+                    await fetch('/api/points/add', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: currentUserId, points: 10 }) 
+                    });
+
+                    showAlert(`✅ Rencontre créée avec succès ! Vous avez gagné des points !`, 'success');
+                    
+                    // Reset form
+                    e.target.reset();
+                } else {
+                    showAlert('❌ Erreur lors de la création de la rencontre', 'error');
+                }
+            } catch (error) {
+                showAlert(`❌ Erreur: ${error.message}`, 'error');
+            }
+        });
+
+        function showAlert(message, type) {
+            const alert = document.getElementById('meetingAlert');
+            alert.textContent = message;
+            alert.className = `alert ${type}`;
+            alert.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

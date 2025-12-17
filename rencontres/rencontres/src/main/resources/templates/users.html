@@ -384,12 +384,18 @@
                     <div class="users-grid">`;
 
             users.forEach(user => {
+                // Note le bouton ajouté en bas de la carte
                 html += `
                     <div class="user-card">
                         <h3>👤 ${user.username}</h3>
                         <p><strong>Bio:</strong> ${user.bio}</p>
                         <p><strong>Intérêts:</strong> ${user.interests.join(', ')}</p>
                         ${user.localisation ? `<p><strong>Ville:</strong> ${user.localisation}</p>` : ''}
+                        
+                        <a href="/users/detail/${user.id}" 
+                           style="display:block; text-align:center; margin-top:15px; background:#667eea; color:white; padding:8px; border-radius:5px; text-decoration:none; font-weight:bold;">
+                           Rencontrer 🤝
+                        </a>
                     </div>
                 `;
             });

@@ -85,4 +85,17 @@ public class UserService {
                 .toList();
         return userMongoRepository.findAllById(userIds);
     }
+
+
+    /**
+     * Récupère un utilisateur par son ID (MongoDB)
+     * Utile pour afficher la page de détail
+     */
+    public java.util.Optional<UserDoc> getUserById(String id) {
+        return userMongoRepository.findById(id);
+    }
+
+    public List<UserDoc> findAll() {
+        return userMongoRepository.findAll();
+    }
 }

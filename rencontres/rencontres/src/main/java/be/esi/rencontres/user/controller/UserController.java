@@ -1,5 +1,6 @@
 package be.esi.rencontres.user.controller;
 
+import be.esi.rencontres.points.service.PointsService;
 import be.esi.rencontres.user.dto.UserDTO;
 import be.esi.rencontres.user.model.mongo.UserDoc;
 import be.esi.rencontres.user.service.UserService;
@@ -8,22 +9,23 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
-
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Controller
 public class UserController {
 
     private final UserService userService;
+    private final PointsService pointsService; // Nécessaire pour récupérer les scores Redis
 
-    public UserController(UserService userService) {
+    // On injecte aussi PointsService dans le constructeur
+    public UserController(UserService userService, PointsService pointsService) {
         this.userService = userService;
+        this.pointsService = pointsService;
     }
 
     /**
@@ -43,7 +45,7 @@ public class UserController {
     }
 
     /**
-     * Route GET /search : Affiche la page de recherche (protectée)
+     * Route GET /search : Affiche la page de recherche (protégée)
      */
     @GetMapping("/search")
     public String search() {
@@ -51,16 +53,62 @@ public class UserController {
     }
 
     /**
-     * Route POST /api/users : Enregistre un nouvel utilisateur (API REST)
-     * Déclenche la Double Écriture vers MongoDB (profil) et Neo4j (nœud du graphe).
-     *
-     * @param userDTO Les données reçues, validées par @Valid
-     * @return L'utilisateur enregistré et le statut 201 CREATED
+     * Route GET /leaderboard : Affiche le classement Top 10
+     * Combine MongoDB (infos user) et Redis (scores)
+     */
+    @GetMapping("/leaderboard")
+    public String leaderboard(Model model) {
+        // 1. Récupérer tous les utilisateurs (MongoDB)
+        // Note: Assure-toi d'avoir ajouté la méthode findAll() dans UserService !
+        List<UserDoc> allUsers = userService.findAll();
+
+        // 2. Construire la liste du classement
+        List<LeaderboardEntry> leaderboard = allUsers.stream()
+            .map(user -> {
+                // Pour chaque user, on va chercher ses points dans Redis
+                Integer score = pointsService.getPoints(user.getId());
+                return new LeaderboardEntry(
+                    user.getUsername(),
+                    user.getLocalisation(),
+                    score != null ? score : 0
+                );
+            })
+            // 3. Trier par score décroissant (du plus grand au plus petit)
+            .sorted((e1, e2) -> e2.score.compareTo(e1.score))
+            // 4. Garder uniquement les 10 premiers
+            .limit(10)
+            .collect(Collectors.toList());
+
+        // 5. Envoyer la liste à la vue HTML
+        model.addAttribute("leaderboard", leaderboard);
+
+        return "leaderboard";
+    }
+
+    /**
+     * Route GET /users/detail/{id} : Affiche le détail d'un utilisateur
+     */
+    @GetMapping("/users/detail/{id}")
+    public String userDetail(@PathVariable String id, Model model, HttpSession session) {
+        if (session.getAttribute("userId") == null) {
+            return "redirect:/";
+        }
+
+        Optional<UserDoc> userOpt = userService.getUserById(id);
+
+        if (userOpt.isPresent()) {
+            model.addAttribute("targetUser", userOpt.get());
+            return "detail";
+        } else {
+            return "redirect:/search";
+        }
+    }
+
+    /**
+     * Route POST /api/users : Enregistrement
      */
     @PostMapping("/api/users")
-    public ResponseEntity<UserDoc> registerUser(
-            @Valid @RequestBody UserDTO userDTO) {
-
+    public ResponseEntity<UserDoc> registerUser(@Valid @RequestBody UserDTO userDTO) {
         UserDoc userDoc = new UserDoc();
         userDoc.setUsername(userDTO.getUsername());
         userDoc.setBio(userDTO.getBio());
@@ -74,12 +122,7 @@ public class UserController {
     }
 
     /**
-     * Route GET /api/users/search : Recherche des utilisateurs par centre d'intérêt ou par ville
-     * Fournir exactement un des deux paramètres: interest OU localisation.
-     *
-     * @param interest Centre d'intérêt à rechercher (optionnel)
-     * @param localisation     Ville (localisation) à rechercher (optionnel)
-     * @return Liste des utilisateurs correspondants
+     * Route GET /api/users/search : API de recherche
      */
     @GetMapping("/api/users/search")
     @ResponseBody
@@ -90,6 +133,7 @@ public class UserController {
 
         String trimmedInterest = interest != null ? interest.trim() : null;
         String trimmedLocalisation = localisation != null ? localisation.trim() : null;
+        
         if ((trimmedLocalisation == null || trimmedLocalisation.isBlank()) && localisation != null) {
             trimmedLocalisation = localisation.trim();
         }
@@ -97,20 +141,28 @@ public class UserController {
         boolean hasInterest = trimmedInterest != null && !trimmedInterest.isBlank();
         boolean hasLoc = trimmedLocalisation != null && !trimmedLocalisation.isBlank();
 
-        if (!hasInterest && !hasLoc) {
-            return ResponseEntity.badRequest().build();
-        }
-        if (hasInterest && hasLoc) {
-            return ResponseEntity.badRequest().build();
-        }
+        if (!hasInterest && !hasLoc) return ResponseEntity.badRequest().build();
+        if (hasInterest && hasLoc) return ResponseEntity.badRequest().build();
 
-        // Récupérer l'ID de l'utilisateur connecté pour l'exclure des résultats
         String currentUserId = (String) session.getAttribute("userId");
 
         if (hasInterest) {
             return ResponseEntity.ok(userService.findUsersByInterest(trimmedInterest, currentUserId));
         } else {
             return ResponseEntity.ok(userService.findUsersByLocalisation(trimmedLocalisation, currentUserId));
+        }
+    }
+
+    // --- Petite classe interne pour transporter les données vers la vue Leaderboard ---
+    public static class LeaderboardEntry {
+        public String username;
+        public String city;
+        public Integer score;
+
+        public LeaderboardEntry(String username, String city, Integer score) {
+            this.username = username;
+            this.city = city;
+            this.score = score;
         }
     }
 }
