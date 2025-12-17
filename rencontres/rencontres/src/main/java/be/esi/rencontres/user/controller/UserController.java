@@ -20,9 +20,8 @@ import java.util.stream.Collectors;
 public class UserController {
 
     private final UserService userService;
-    private final PointsService pointsService; // Nécessaire pour récupérer les scores Redis
+    private final PointsService pointsService;
 
-    // On injecte aussi PointsService dans le constructeur
     public UserController(UserService userService, PointsService pointsService) {
         this.userService = userService;
         this.pointsService = pointsService;
@@ -58,14 +57,12 @@ public class UserController {
      */
     @GetMapping("/leaderboard")
     public String leaderboard(Model model) {
-        // 1. Récupérer tous les utilisateurs (MongoDB)
-        // Note: Assure-toi d'avoir ajouté la méthode findAll() dans UserService !
+    
         List<UserDoc> allUsers = userService.findAll();
 
-        // 2. Construire la liste du classement
         List<LeaderboardEntry> leaderboard = allUsers.stream()
             .map(user -> {
-                // Pour chaque user, on va chercher ses points dans Redis
+            
                 Integer score = pointsService.getPoints(user.getId());
                 return new LeaderboardEntry(
                     user.getUsername(),
@@ -73,13 +70,13 @@ public class UserController {
                     score != null ? score : 0
                 );
             })
-            // 3. Trier par score décroissant (du plus grand au plus petit)
+            // Trier par score décroissant 
             .sorted((e1, e2) -> e2.score.compareTo(e1.score))
-            // 4. Garder uniquement les 10 premiers
+            
             .limit(10)
             .collect(Collectors.toList());
 
-        // 5. Envoyer la liste à la vue HTML
+        // Envoyer la liste à la vue HTML
         model.addAttribute("leaderboard", leaderboard);
 
         return "leaderboard";
@@ -153,7 +150,7 @@ public class UserController {
         }
     }
 
-    // --- Petite classe interne pour transporter les données vers la vue Leaderboard ---
+    // Petite classe interne pour transporter les données vers la vue Leaderboard ---
     public static class LeaderboardEntry {
         public String username;
         public String city;

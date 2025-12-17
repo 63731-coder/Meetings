@@ -170,8 +170,7 @@
             const date = document.getElementById('date').value;
 
             // Récupérer l'ID de l'utilisateur courant (stocké en session via API check)
-            // Note: Pour la démo, on suppose que le back-end gère l'utilisateur connecté via la session HTTP
-            // mais ici on envoie les infos au format JSON attendu par le contrôleur Meeting.
+            // on envoie les infos au format JSON attendu par le contrôleur Meeting.
             
             try {
                 // 1. D'abord on vérifie qui est connecté pour l'envoyer comme "userId1"
@@ -193,27 +192,21 @@
                 });
 
                 if (response.ok) {
-                    const result = await response.json();
-                    
-                    // 3. Si succès, on ajoute les points (Appel API Redis)
-                    // (Note: Idéalement le backend fait ça tout seul, mais l'énoncé demande de montrer les interactions)
-                    await fetch('/api/points/add', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: currentUserId, points: 10 }) 
-                    });
+                
+                showAlert('✅ Rencontre créée avec succès ! Tu as gagné des points.', 'success');
+                // Reset form
+                e.target.reset();
 
-                    showAlert(`✅ Rencontre créée avec succès ! Vous avez gagné des points !`, 'success');
-                    
-                    // Reset form
-                    e.target.reset();
-                } else {
-                    showAlert('❌ Erreur lors de la création de la rencontre', 'error');
-                }
-            } catch (error) {
-                showAlert(`❌ Erreur: ${error.message}`, 'error');
+            } else if (response.status === 409) {
+                showAlert('⚠️ Tu as déjà déclaré une rencontre avec cette personne !', 'error');
+
+            } else {
+                showAlert('❌ Erreur technique lors de la création', 'error');
             }
-        });
+        } catch (error) {
+            showAlert(`❌ Erreur réseau: ${error.message}`, 'error');
+        }
+    })
 
         function showAlert(message, type) {
             const alert = document.getElementById('meetingAlert');

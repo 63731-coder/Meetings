@@ -30,4 +30,7 @@ public class UserDoc {
 
     @Field("password")
     private String password;
+
+    @Field("score")
+    private Integer score = 0;
 }

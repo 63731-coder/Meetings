@@ -1,5 +1,6 @@
 package be.esi.rencontres.auth.controller;
 
+import be.esi.rencontres.points.service.PointsService;
 import be.esi.rencontres.user.model.mongo.UserDoc;
 import be.esi.rencontres.user.repository.UserMongoRepository;
 import jakarta.servlet.http.HttpSession;
@@ -16,9 +17,11 @@ import java.util.Optional;
 public class AuthController {
 
     private final UserMongoRepository userMongoRepository;
+    private final PointsService pointsService;
 
-    public AuthController(UserMongoRepository userMongoRepository) {
+    public AuthController(UserMongoRepository userMongoRepository, PointsService pointsService) {
         this.userMongoRepository = userMongoRepository;
+        this.pointsService = pointsService;
     }
 
     /**
@@ -52,8 +55,37 @@ public class AuthController {
     /**
      * Logout endpoint
      */
-    @PostMapping("/logout")
+   @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpSession session) {
+        String userId = (String) session.getAttribute("userId");
+
+        if (userId != null) {
+            // 1. Récupérer les points temporaires accumulés dans Redis
+            Integer sessionPoints = pointsService.getPoints(userId);
+
+            // Si on a gagné des points pendant cette session
+            if (sessionPoints != null && sessionPoints > 0) {
+                // 2. Récupérer l'utilisateur dans MongoDB
+                Optional<UserDoc> userOpt = userMongoRepository.findById(userId);
+                
+                if (userOpt.isPresent()) {
+                    UserDoc user = userOpt.get();
+                    
+                    // 3. Gestion sécurisée du score (si null, on met 0)
+                    int currentScore = (user.getScore() == null) ? 0 : user.getScore();
+                    
+                    // 4. On ajoute les points de la session au score total
+                    user.setScore(currentScore + sessionPoints);
+                    
+                    // 5. Sauvegarde persistante dans MongoDB
+                    userMongoRepository.save(user);
+                    
+                    System.out.println("💾 SYNC: " + sessionPoints + " points ajoutés au profil de " + user.getUsername());
+                    
+                }
+            }
+        }
+
         session.invalidate();
         return ResponseEntity.ok().build();
     }
