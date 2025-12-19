@@ -1,20 +1,26 @@
 package be.esi.rencontres.user.controller;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+
 import be.esi.rencontres.points.service.PointsService;
 import be.esi.rencontres.user.dto.UserDTO;
 import be.esi.rencontres.user.model.mongo.UserDoc;
 import be.esi.rencontres.user.service.UserService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Controller
 public class UserController {
@@ -120,6 +126,7 @@ public class UserController {
 
     /**
      * Route GET /api/users/search : API de recherche
+     * Utilise Elasticsearch avec fuzzy matching pour tolérer les fautes d'orthographe
      */
     @GetMapping("/api/users/search")
     @ResponseBody
@@ -143,11 +150,32 @@ public class UserController {
 
         String currentUserId = (String) session.getAttribute("userId");
 
+        // Utiliser Elasticsearch avec fuzzy matching pour tolérer les fautes d'orthographe
         if (hasInterest) {
-            return ResponseEntity.ok(userService.findUsersByInterest(trimmedInterest, currentUserId));
+            return ResponseEntity.ok(userService.findUsersByInterestElasticsearch(trimmedInterest, currentUserId));
         } else {
-            return ResponseEntity.ok(userService.findUsersByLocalisation(trimmedLocalisation, currentUserId));
+            return ResponseEntity.ok(userService.findUsersByLocalisationElasticsearch(trimmedLocalisation, currentUserId));
         }
+    }
+
+    /**
+     * Route GET /api/users/fulltext-search : API de recherche plein texte avec Elasticsearch
+     * Recherche avancée dans username, bio et centres d'intérêt
+     */
+    @GetMapping("/api/users/fulltext-search")
+    @ResponseBody
+    public ResponseEntity<List<UserDoc>> fullTextSearch(
+            @RequestParam String query,
+            HttpSession session) {
+
+        if (query == null || query.trim().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        String currentUserId = (String) session.getAttribute("userId");
+        List<UserDoc> results = userService.fullTextSearch(query.trim(), currentUserId);
+        
+        return ResponseEntity.ok(results);
     }
 
     // Petite classe interne pour transporter les données vers la vue Leaderboard ---
