@@ -193,4 +193,23 @@ public class UserService {
         
         return userMongoRepository.findAllById(userIds);
     }
+
+    /**
+     * Trouve tous les utilisateurs avec qui un utilisateur a déjà eu des rencontres
+     * Utilise la requête Neo4j findUsersByMeetings
+     * 
+     * @param userId ID de l'utilisateur
+     * @return Liste des utilisateurs avec qui il a eu des rencontres
+     */
+    public List<UserDoc> findUsersMetWith(String userId) {
+        // Récupère les nœuds Neo4j des utilisateurs rencontrés
+        List<UserNode> metUsers = userNeo4jRepository.findUsersByMeetings(userId);
+        
+        // Récupère les profils complets depuis MongoDB
+        List<String> userIds = metUsers.stream()
+                .map(UserNode::getId)
+                .toList();
+        
+        return userMongoRepository.findAllById(userIds);
+    }
 }

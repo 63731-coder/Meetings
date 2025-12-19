@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import be.esi.rencontres.points.service.PointsService;
+import be.esi.rencontres.user.dto.LeaderboardDTO;
 import be.esi.rencontres.user.dto.UserDTO;
 import be.esi.rencontres.user.model.mongo.UserDoc;
 import be.esi.rencontres.user.service.UserService;
@@ -59,32 +60,34 @@ public class UserController {
 
     /**
      * Route GET /leaderboard : Affiche le classement Top 10
-     * Combine MongoDB (infos user) et Redis (scores)
+     * PHASE 2: Utilise Redis ZSET (requête avancée)
      */
     @GetMapping("/leaderboard")
     public String leaderboard(Model model) {
-    
-        List<UserDoc> allUsers = userService.findAll();
-
-        List<LeaderboardEntry> leaderboard = allUsers.stream()
-            .map(user -> {
-            
-                Integer score = pointsService.getPoints(user.getId());
-                return new LeaderboardEntry(
-                    user.getUsername(),
-                    user.getLocalisation(),
-                    score != null ? score : 0
-                );
+        // Récupère le Top 10 depuis Redis ZSET
+        var topUsers = pointsService.getTopUsers(10);
+        
+        List<LeaderboardDTO> leaderboard = topUsers.stream()
+            .map(entry -> {
+                String userId = (String) entry.getValue();
+                Integer score = entry.getScore().intValue();
+                
+                // Récupère les infos depuis MongoDB
+                Optional<UserDoc> userOpt = userService.getUserById(userId);
+                if (userOpt.isPresent()) {
+                    UserDoc user = userOpt.get();
+                    return new LeaderboardDTO(
+                        user.getUsername(),
+                        user.getLocalisation(),
+                        score
+                    );
+                }
+                return null;
             })
-            // Trier par score décroissant 
-            .sorted((e1, e2) -> e2.score.compareTo(e1.score))
-            
-            .limit(10)
+            .filter(entry -> entry != null)
             .collect(Collectors.toList());
 
-        // Envoyer la liste à la vue HTML
         model.addAttribute("leaderboard", leaderboard);
-
         return "leaderboard";
     }
 
@@ -178,16 +181,25 @@ public class UserController {
         return ResponseEntity.ok(results);
     }
 
-    // Petite classe interne pour transporter les données vers la vue Leaderboard ---
-    public static class LeaderboardEntry {
-        public String username;
-        public String city;
-        public Integer score;
-
-        public LeaderboardEntry(String username, String city, Integer score) {
-            this.username = username;
-            this.city = city;
-            this.score = score;
+    /**
+     * Route GET /statistics : Affiche la page des statistiques globales
+     */
+    @GetMapping("/statistics")
+    public String statistics(Model model, HttpSession session) {
+        if (session.getAttribute("userId") == null) {
+            return "redirect:/";
         }
+        return "statistics";
+    }
+
+    /**
+     * Route GET /api/users/{userId}/meetings : Utilisateurs rencontrés
+     * Utilise la requête Neo4j findUsersByMeetings
+     */
+    @GetMapping("/api/users/{userId}/meetings")
+    @ResponseBody
+    public ResponseEntity<List<UserDoc>> getUserMeetings(@PathVariable String userId) {
+        List<UserDoc> metUsers = userService.findUsersMetWith(userId);
+        return ResponseEntity.ok(metUsers);
     }
 }

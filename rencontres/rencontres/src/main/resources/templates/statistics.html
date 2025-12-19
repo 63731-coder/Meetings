@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Statistiques - Phase 2</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: white;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border: 2px solid white;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .stat-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-item:last-child { border-bottom: none; }
+
+        .stat-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .stat-value {
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Statistiques Avancées</h1>
+            <a href="/search" class="back-btn">← Retour</a>
+        </div>
+
+        <div class="grid">
+            <!-- MongoDB: Top Intérêts -->
+            <div class="card">
+                <h2>🏷️ Top 10 Intérêts Populaires</h2>
+                <div id="topInterests" class="loading">Chargement...</div>
+            </div>
+
+            <!-- MongoDB: Users par Localisation -->
+            <div class="card">
+                <h2>📍 Utilisateurs par Ville</h2>
+                <div id="usersByLocation" class="loading">Chargement...</div>
+            </div>
+
+            <!-- MongoDB: Users avec plus d'intérêts -->
+            <div class="card">
+                <h2>⭐ Utilisateurs les Plus Passionnés</h2>
+                <div id="mostInterests" class="loading">Chargement...</div>
+            </div>
+
+            <!-- Redis: Stats Leaderboard -->
+            <div class="card">
+                <h2>🏆 Statistiques du Leaderboard</h2>
+                <div id="leaderboardStats" class="loading">Chargement...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // MongoDB: Top Intérêts
+        fetch('/api/statistics/top-interests')
+            .then(r => r.json())
+            .then(data => {
+                const html = data.map(item => 
+                    `<div class="stat-item">
+                        <span class="stat-label">${item._id}</span>
+                        <span class="stat-value">${item.count} users</span>
+                    </div>`
+                ).join('');
+                document.getElementById('topInterests').innerHTML = html;
+            });
+
+        // MongoDB: Users par Localisation
+        fetch('/api/statistics/users-by-location')
+            .then(r => r.json())
+            .then(data => {
+                const html = data.map(item => 
+                    `<div class="stat-item">
+                        <span class="stat-label">${item._id}</span>
+                        <span class="stat-value">${item.userCount} users</span>
+                    </div>`
+                ).join('');
+                document.getElementById('usersByLocation').innerHTML = html;
+            });
+
+        // MongoDB: Users avec le plus d'intérêts
+        fetch('/api/statistics/most-interests')
+            .then(r => r.json())
+            .then(data => {
+                const html = data.map(item => 
+                    `<div class="stat-item">
+                        <span class="stat-label">${item.username} (${item.localisation})</span>
+                        <span class="stat-value">${item.interestCount} intérêts</span>
+                    </div>`
+                ).join('');
+                document.getElementById('mostInterests').innerHTML = html;
+            });
+
+        // Neo4j: Users les plus actifs
+        fetch('/api/meetings/advanced/most-active?limit=10')
+            .then(r => r.json())
+            .then(data => {
+                const html = data.map(item =>
+                    `<div class="stat-item">
+                        <span class="stat-label">User ${item.userId}</span>
+                        <span class="stat-value">${item.meetingCount} rencontres</span>
+                    </div>`
+                ).join('');
+                document.getElementById('mostActive').innerHTML = html;
+            });
+
+        // MongoDB: Stats globales
+        fetch('/api/statistics/global')
+            .then(r => r.json())
+            .then(data => {
+                const html = `
+                    <div class="stat-item">
+                        <span class="stat-label">Total utilisateurs</span>
+                        <span class="stat-value">${data.totalUsers}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Moyenne d'intérêts par user</span>
+                        <span class="stat-value">${data.avgInterests.toFixed(1)}</span>
+                    </div>
+                `;
+                document.getElementById('globalStats').innerHTML = html;
+            });
+
+        // Redis: Stats Leaderboard
+        fetch('/api/points/leaderboard/size')
+            .then(r => r.json())
+            .then(size => {
+                const html = `
+                    <div class="stat-item">
+                        <span class="stat-label">Utilisateurs avec des points</span>
+                        <span class="stat-value">${size}</span>
+                    </div>
+                `;
+                document.getElementById('leaderboardStats').innerHTML = html;
+            });
+    </script>
+</body>
+</html>

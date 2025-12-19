@@ -18,6 +18,11 @@ public class MeetingService {
     }
 
     public MeetingRelationship createMeeting(String userId1, String userId2, LocalDateTime meetingDate, String location) {
+        // Validation: la date ne peut pas être dans le passé
+        if (meetingDate.isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("La date de rencontre ne peut pas être dans le passé");
+        }
+        
         if (existsMeetingBetweenUsers(userId1, userId2)) {
             throw new IllegalStateException("A meeting already exists between these users");
         }
@@ -38,5 +43,27 @@ public class MeetingService {
 
     public void deleteMeeting(Long meetingId) {
         meetingNeo4jRepository.deleteById(meetingId);
+    }
+
+    // ========== MÉTHODES PHASE 2 (Requêtes avancées Neo4j) ==========
+
+    public int countMeetingsByUser(String userId) {
+        return meetingNeo4jRepository.countMeetingsByUser(userId);
+    }
+
+    public List<Object> getMostActiveUsers(int limit) {
+        return meetingNeo4jRepository.findMostActiveUsers(limit);
+    }
+
+    public List<Object> getSuggestionsBasedOnCommonMeetings(String userId, int limit) {
+        return meetingNeo4jRepository.findSuggestionsBasedOnCommonMeetings(userId, limit);
+    }
+
+    public List<MeetingRelationship> getRecentMeetings(LocalDateTime since, int limit) {
+        return meetingNeo4jRepository.findRecentMeetings(since, limit);
+    }
+
+    public Integer getDistanceBetweenUsers(String userId1, String userId2) {
+        return meetingNeo4jRepository.findDistanceBetweenUsers(userId1, userId2);
     }
 }
