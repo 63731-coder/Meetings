@@ -53,32 +53,34 @@ public class UserController {
 
     /**
      * Route GET /leaderboard : Affiche le classement Top 10
-     * Combine MongoDB (infos user) et Redis (scores)
+     * PHASE 2: Utilise Redis ZSET (requête avancée)
      */
     @GetMapping("/leaderboard")
     public String leaderboard(Model model) {
-    
-        List<UserDoc> allUsers = userService.findAll();
-
-        List<LeaderboardEntry> leaderboard = allUsers.stream()
-            .map(user -> {
-            
-                Integer score = pointsService.getPoints(user.getId());
-                return new LeaderboardEntry(
-                    user.getUsername(),
-                    user.getLocalisation(),
-                    score != null ? score : 0
-                );
+        // Récupère le Top 10 depuis Redis ZSET
+        var topUsers = pointsService.getTopUsers(10);
+        
+        List<LeaderboardEntry> leaderboard = topUsers.stream()
+            .map(entry -> {
+                String userId = (String) entry.getValue();
+                Integer score = entry.getScore().intValue();
+                
+                // Récupère les infos depuis MongoDB
+                Optional<UserDoc> userOpt = userService.getUserById(userId);
+                if (userOpt.isPresent()) {
+                    UserDoc user = userOpt.get();
+                    return new LeaderboardEntry(
+                        user.getUsername(),
+                        user.getLocalisation(),
+                        score
+                    );
+                }
+                return null;
             })
-            // Trier par score décroissant 
-            .sorted((e1, e2) -> e2.score.compareTo(e1.score))
-            
-            .limit(10)
+            .filter(entry -> entry != null)
             .collect(Collectors.toList());
 
-        // Envoyer la liste à la vue HTML
         model.addAttribute("leaderboard", leaderboard);
-
         return "leaderboard";
     }
 
@@ -148,6 +150,17 @@ public class UserController {
         } else {
             return ResponseEntity.ok(userService.findUsersByLocalisation(trimmedLocalisation, currentUserId));
         }
+    }
+
+    /**
+     * Route GET /statistics : Page des statistiques avancées (Phase 2)
+     */
+    @GetMapping("/statistics")
+    public String statistics(Model model, HttpSession session) {
+        if (session.getAttribute("userId") == null) {
+            return "redirect:/";
+        }
+        return "statistics";
     }
 
     // Petite classe interne pour transporter les données vers la vue Leaderboard ---

@@ -1,26 +1,27 @@
 package be.esi.rencontres.points.service;
 
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import org.springframework.stereotype.Service;
+
+import java.util.Set;
 
 @Service
 public class PointsService {
 
-    // On déclare notre télécommande Redis
     private final RedisTemplate<String, Object> redisTemplate;
+    private static final String LEADERBOARD_KEY = "leaderboard";
 
-    // Spring va injecter la télécommande Redis toute prête ici
     public PointsService(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
 
-    // Si userId vaut "u42", la clé devient "score:u42"
     public void addPoints(String userId, int points){
         String key = "score:" + userId;
-
-        // On utilise la télécommande pour ajouter des points
-        // Si la clé "score:u42" n'existe pas, Redis la crée et met la valeur à 0
         redisTemplate.opsForValue().increment(key, points);
+        
+        // PHASE 2: Mise à jour du leaderboard (ZSET)
+        redisTemplate.opsForZSet().incrementScore(LEADERBOARD_KEY, userId, points);
     }
 
     public Integer getPoints(String userId){
@@ -28,10 +29,39 @@ public class PointsService {
         Object value = redisTemplate.opsForValue().get(key);
         
         if(value != null){
-            // On convertit le texte "10" en entier 10
             return Integer.parseInt((String) value);
         } else {
             return 0;
         }
+    }
+
+    // ========== REQUÊTES AVANCÉES PHASE 2 (Redis ZSET) ==========
+
+    /**
+     * Top N utilisateurs du leaderboard (structure ZSET optimisée)
+     */
+    public Set<TypedTuple<Object>> getTopUsers(int limit) {
+        return redisTemplate.opsForZSet().reverseRangeWithScores(LEADERBOARD_KEY, 0, limit - 1);
+    }
+
+    /**
+     * Position d'un utilisateur dans le classement (0 = premier)
+     */
+    public Long getUserRank(String userId) {
+        return redisTemplate.opsForZSet().reverseRank(LEADERBOARD_KEY, userId);
+    }
+
+    /**
+     * Nombre total d'utilisateurs dans le leaderboard
+     */
+    public Long getLeaderboardSize() {
+        return redisTemplate.opsForZSet().size(LEADERBOARD_KEY);
+    }
+
+    /**
+     * Utilisateurs avec un score dans une fourchette
+     */
+    public Set<TypedTuple<Object>> getUsersByScoreRange(double minScore, double maxScore) {
+        return redisTemplate.opsForZSet().rangeByScoreWithScores(LEADERBOARD_KEY, minScore, maxScore);
     }
 }
