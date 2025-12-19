@@ -1,6 +1,7 @@
 package be.esi.rencontres.user.controller;
 
 import be.esi.rencontres.points.service.PointsService;
+import be.esi.rencontres.user.dto.LeaderboardDTO;
 import be.esi.rencontres.user.dto.UserDTO;
 import be.esi.rencontres.user.model.mongo.UserDoc;
 import be.esi.rencontres.user.service.UserService;
@@ -60,7 +61,7 @@ public class UserController {
         // Récupère le Top 10 depuis Redis ZSET
         var topUsers = pointsService.getTopUsers(10);
         
-        List<LeaderboardEntry> leaderboard = topUsers.stream()
+        List<LeaderboardDTO> leaderboard = topUsers.stream()
             .map(entry -> {
                 String userId = (String) entry.getValue();
                 Integer score = entry.getScore().intValue();
@@ -69,7 +70,7 @@ public class UserController {
                 Optional<UserDoc> userOpt = userService.getUserById(userId);
                 if (userOpt.isPresent()) {
                     UserDoc user = userOpt.get();
-                    return new LeaderboardEntry(
+                    return new LeaderboardDTO(
                         user.getUsername(),
                         user.getLocalisation(),
                         score
@@ -163,16 +164,14 @@ public class UserController {
         return "statistics";
     }
 
-    // Petite classe interne pour transporter les données vers la vue Leaderboard ---
-    public static class LeaderboardEntry {
-        public String username;
-        public String city;
-        public Integer score;
-
-        public LeaderboardEntry(String username, String city, Integer score) {
-            this.username = username;
-            this.city = city;
-            this.score = score;
-        }
+    /**
+     * Route GET /api/users/{userId}/meetings : Utilisateurs rencontrés
+     * Utilise la requête Neo4j findUsersByMeetings
+     */
+    @GetMapping("/api/users/{userId}/meetings")
+    @ResponseBody
+    public ResponseEntity<List<UserDoc>> getUserMeetings(@PathVariable String userId) {
+        List<UserDoc> metUsers = userService.findUsersMetWith(userId);
+        return ResponseEntity.ok(metUsers);
     }
 }
