@@ -1,37 +1,40 @@
 
 
-# 🤝 Rencontres - Application de Création de Relations Humaines
+# Rencontres - Application de Création de Relations Humaines
 
-## 📋 Description du Projet
+## Description du Projet
 
 Application de gestion de rencontres sociales visant à encourager les interactions humaines réelles. Le système permet aux utilisateurs de découvrir d'autres personnes partageant des centres d'intérêt communs, de simuler des rencontres, et d'accumuler des points de sociabilité.
 
-**⚠️ Note importante** : Ce projet est avant tout une démonstration d'architecture logicielle et de gestion multi-bases de données. L'interface utilisateur est volontairement simple pour mettre l'accent sur la qualité de la structure informatique sous-jacente.
-
----
-
-## 🏗️ Architecture Générale
+## Architecture Générale
 
 ### Système Multi-Bases de Données
 
 Le projet utilise **4 systèmes de gestion de données différents**, chacun optimisé pour un type spécifique d'opérations :
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Spring Boot Application                   │
-│                                                               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │ UserService  │  │MeetingService│  │ PointsService│      │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
-│         │                  │                  │              │
-└─────────┼──────────────────┼──────────────────┼──────────────┘
-          │                  │                  │
-    ┌─────┴─────┐      ┌─────┴─────┐      ┌─────┴─────┐
-    │           │      │           │      │           │
-┌───▼──┐  ┌────▼───┐  │  ┌────▼───┐  ┌───▼──┐  ┌────▼────┐
-│MongoDB│  │Neo4j   │  └──│Neo4j   │  │Redis │  │ElasticS.│
-└───────┘  └────────┘     └────────┘  └──────┘  └─────────┘
-   (1)        (2)            (2)        (3)         (4)
+┌───────────────────────────────────────────────────────────┐
+│                   Spring Boot Application                 │
+│                                                           │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ UserService  │  │MeetingService│  │ PointsService│     │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────      │
+│         │                 │                 │             │
+└─────────┼─────────────────┼─────────────────┼─────────────┘
+          │                 │                 │
+    ┌─────┴───── ┐          │                 │
+    │     |      │          │                 │
+┌───▼───┐ | ┌────▼───┐  ┌───▼ ───┐        ┌───▼──┐
+│MongoDB│ | │Neo4j   │  │Neo4j   │        │Redis │
+└───────┘ | └────┬───┘  └────────┘        └──────┘
+   (1)    |    (2)          (2)                (3)
+          |
+       ┌───
+       │
+   ┌───▼─────────
+   │Elasticsearch│
+   └─────────────┘
+       (4)
 ```
 
 ### Services Métiers
@@ -415,275 +418,3 @@ rencontres/
 ```
 
 ---
-
-## 🔌 API REST - Endpoints Principaux
-
-### Utilisateurs
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| POST | `/api/users` | Créer un utilisateur (triple écriture) |
-| GET | `/api/users/search?interest={interest}` | Rechercher par centre d'intérêt |
-| GET | `/api/users/fulltext-search?query={text}` | Recherche plein texte (ES) |
-| GET | `/api/users/{userId}/meetings` | Rencontres d'un utilisateur |
-
-### Rencontres
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| POST | `/api/meetings` | Créer une rencontre (Neo4j) |
-| GET | `/api/meetings/user/{userId}` | Rencontres d'un utilisateur |
-| GET | `/api/meetings/between?user1={id1}&user2={id2}` | Vérifier une rencontre |
-| GET | `/api/meetings-advanced/count/{userId}` | Nombre de rencontres |
-| GET | `/api/meetings-advanced/most-active?limit=10` | Utilisateurs les plus actifs |
-| GET | `/api/meetings-advanced/suggestions/{userId}` | Recommandations |
-
-### Points & Leaderboard
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| GET | `/api/points/leaderboard?limit=10` | Top N utilisateurs |
-| GET | `/api/points/rank/{userId}` | Rang d'un utilisateur |
-| GET | `/api/points/{userId}` | Points d'un utilisateur |
-
-### Statistiques
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| GET | `/api/statistics/top-interests` | Centres d'intérêt populaires |
-| GET | `/api/statistics/users-by-location` | Répartition par ville |
-| GET | `/api/statistics/global` | Statistiques globales |
-
----
-
-## 🎯 Démonstration - Scénario d'Utilisation
-
-### 1. Création d'Utilisateurs
-
-```bash
-# Alice - Passionnée de cuisine
-curl -X POST http://localhost:8080/api/users \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "Alice",
-    "email": "alice@example.com",
-    "bio": "Passionnée de cuisine italienne",
-    "interests": ["cuisine", "voyages", "photographie"],
-    "localisation": "Bruxelles"
-  }'
-
-# Bob - Amateur de randonnée
-curl -X POST http://localhost:8080/api/users \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "Bob",
-    "email": "bob@example.com",
-    "bio": "Amateur de randonnée et nature",
-    "interests": ["randonnée", "photographie", "vélo"],
-    "localisation": "Bruxelles"
-  }'
-```
-
-**Résultat :**
-- ✅ Données sauvegardées dans **MongoDB**
-- ✅ Nœuds créés dans **Neo4j**
-- ✅ Indexation dans **Elasticsearch**
-
-### 2. Recherche d'Utilisateurs
-
-```bash
-# Recherche par centre d'intérêt commun
-curl "http://localhost:8080/api/users/search?interest=photographie"
-
-# Recherche plein texte
-curl "http://localhost:8080/api/users/fulltext-search?query=cuisine"
-```
-
-### 3. Simulation d'une Rencontre
-
-```bash
-curl -X POST http://localhost:8080/api/meetings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "userId1": "67918e3b1e42df01e87e5db5",
-    "userId2": "67918e501e42df01e87e5db6",
-    "meetingDate": "2026-01-15T14:30:00",
-    "location": "Café Central, Bruxelles"
-  }'
-```
-
-**Résultat :**
-- ✅ Relation `[:MET]` créée dans **Neo4j**
-- ✅ +10 points ajoutés à Alice dans **Redis**
-- ✅ +10 points ajoutés à Bob dans **Redis**
-- ✅ Mise à jour du leaderboard (ZSET)
-
-### 4. Consultation du Leaderboard
-
-```bash
-curl "http://localhost:8080/api/points/leaderboard?limit=10"
-```
-
-### 5. Recommandations
-
-```bash
-# Suggestions pour Alice basées sur connexions communes
-curl "http://localhost:8080/api/meetings-advanced/suggestions/67918e3b1e42df01e87e5db5?limit=5"
-```
-
----
-
-## 🎓 Justifications Techniques (Phase 3)
-
-### Architecture Évolutive
-
-✅ **Séparation des préoccupations**
-- Services métiers découplés
-- Repositories abstraits (pattern Repository)
-- DTOs pour la communication API
-
-✅ **Polyglot Persistence**
-- Chaque base de données utilisée pour ses forces
-- Pas de redondance inutile des données
-- Synchronisation maîtrisée
-
-✅ **Scalabilité**
-- Neo4j : Scalabilité horizontale pour graphe
-- Redis : In-memory pour performances extrêmes
-- Elasticsearch : Sharding natif pour recherche distribuée
-- MongoDB : Sharding pour données utilisateur
-
-### Optimisations Implémentées
-
-#### Neo4j
-- Index sur `User.id` pour requêtes rapides
-- Requêtes Cypher optimisées (pas de `MATCH` imbriqués inutiles)
-- Relations bidirectionnelles évitées (une seule direction)
-
-#### Redis
-- Utilisation de Sorted Sets (ZSET) pour leaderboard O(log N)
-- Clés préfixées pour éviter collisions
-- TTL non nécessaire (données persistantes)
-
-#### Elasticsearch
-- Mapping explicite avec boost de pertinence
-- Recherche multi-champs avec pondération
-- Indexation asynchrone pour performances
-
-#### MongoDB
-- Index sur `interests` pour requêtes de recherche
-- Agrégations optimisées (pipeline MongoDB)
-- Documents légers (pas de données binaires)
-
-### Gestion des Erreurs
-
-```java
-@Transactional  // Rollback MongoDB si échec
-public UserDoc registerUser(UserDoc user) {
-    try {
-        UserDoc savedUser = userMongoRepository.save(user);
-        createNeo4jNode(savedUser);
-        indexUserInElasticsearch(savedUser);
-        return savedUser;
-    } catch (Exception e) {
-        log.error("Erreur lors de l'enregistrement", e);
-        throw new RuntimeException("Échec de l'enregistrement");
-    }
-}
-```
-
----
-
-## 📊 Comparaison des Systèmes
-
-| Critère | MongoDB | Neo4j | Redis | Elasticsearch |
-|---------|---------|-------|-------|---------------|
-| **Type** | Document | Graphe | Clé-Valeur | Moteur recherche |
-| **Utilisation** | Source de vérité | Relations sociales | Classements | Recherche texte |
-| **Requête typique** | `find({interests: "X"})` | `MATCH (a)-[:MET]-(b)` | `ZREVRANGE` | `match query` |
-| **Performance** | Bonne | Excellente (graphe) | Extrême | Très bonne |
-| **Complexité** | Faible | Moyenne | Très faible | Moyenne |
-| **Cas d'usage** | CRUD utilisateurs | Recommandations | Leaderboard | Barre de recherche |
-
----
-
-## 🧪 Tests et Vérification
-
-### Vérifier la Triple Écriture
-
-```bash
-# 1. Créer un utilisateur via API
-USER_ID=$(curl -X POST http://localhost:8080/api/users -H "Content-Type: application/json" -d '{"username":"Test","email":"test@test.com","interests":["test"]}' | jq -r '.id')
-
-# 2. Vérifier dans MongoDB
-curl "http://localhost:8080/api/users/$USER_ID"
-
-# 3. Vérifier dans Neo4j (Neo4j Browser)
-MATCH (u:User {id: "$USER_ID"}) RETURN u
-
-# 4. Vérifier dans Elasticsearch
-curl "http://localhost:8080/api/users/fulltext-search?query=Test"
-```
-
-### Vérifier le Leaderboard Redis
-
-```bash
-# Via Redis CLI
-docker exec -it projet_redis redis-cli
-> ZREVRANGE leaderboard 0 -1 WITHSCORES
-```
-
----
-
-## 🎯 Phase du Projet
-
-**Phase Actuelle : Phase 3 🥇 (Projet Excellent)**
-
-### Critères Phase 3 Satisfaits
-
-✅ **Architecture évolutive**
-- Services métiers découplés
-- Repositories abstraits
-- Configuration externalisée
-
-✅ **Répartition réfléchie des données**
-- Justification documentée pour chaque choix
-- Triple écriture maîtrisée
-- Consistance éventuelle acceptable
-
-✅ **Modèles optimisés**
-- Index Neo4j sur User.id
-- Sorted Sets Redis pour leaderboard
-- Mapping Elasticsearch avec boost
-
-✅ **Requêtes complexes**
-- Recommandations par connexions communes (Neo4j)
-- Agrégations MongoDB
-- Recherche multi-champs pondérée (ES)
-- Classements Redis O(log N)
-
-✅ **Documentation exemplaire**
-- README complet
-- Commentaires Javadoc
-- Justifications techniques
-- Schémas d'architecture
-
-✅ **Démonstration fluide**
-- Interface web fonctionnelle
-- Scénarios d'usage clairs
-
----
-
-## 👥 Équipe
-
-**Groupe :** 62098-63731-63737
-
----
-
-## 📝 Licence
-
-Projet académique - HE2B ESI - Architecture & Bases de Données - 2025-2026
-
----
-
-**Date de livraison :** 04 janvier 2026 (23h55)
