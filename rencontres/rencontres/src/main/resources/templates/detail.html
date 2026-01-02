@@ -201,7 +201,7 @@
                 showAlert('⚠️ Tu as déjà déclaré une rencontre avec cette personne !', 'error');
 
             } else {
-                showAlert('❌ Erreur technique lors de la création', 'error');
+                showAlert('❌ La date de rencontre doit être dans le futur (pas avant aujourd\'hui)', 'error');;
             }
         } catch (error) {
             showAlert(`❌ Erreur réseau: ${error.message}`, 'error');

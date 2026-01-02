@@ -228,6 +228,10 @@
             <h1>🔍 Rechercher des utilisateurs</h1>
             
             <div class="header-actions">
+                <a href="/statistics" class="score-badge" title="Statistiques" style="background: rgba(255,255,255,0.9); margin-right: 10px;">
+                    📊 Stats
+                </a>
+                
                 <a href="/leaderboard" id="scoreBadge" class="score-badge" title="Voir le Top 10">
                     🏆 <span id="userPoints">...</span> pts
                 </a>
@@ -245,6 +249,7 @@
                     <select id="searchType" name="searchType">
                         <option value="interest" selected>Centre d'intérêt</option>
                         <option value="localisation">Ville</option>
+                        <option value="username">Nom d'utilisateur</option>
                     </select>
                 </div>
 
@@ -322,7 +327,11 @@
             if (type === 'localisation') {
                 label.textContent = 'Ville';
                 input.placeholder = 'ex: Paris, Lyon, Marseille...';
-            } else {
+            } else if (type === 'username') {
+                label.textContent = 'Nom d\'utilisateur';
+                input.placeholder = 'ex: Alice, Bob...';
+            }
+            else {
                 label.textContent = "Centre d'intérêt";
                 input.placeholder = 'ex: Musique, Sport, Voyage...';
             }
@@ -336,12 +345,18 @@
             const query = document.getElementById('searchQuery').value.trim();
 
             if (!query) {
-                showAlert(type === 'localisation' ? 'Veuillez entrer une ville' : 'Veuillez entrer un centre d\'intérêt');
+                showAlert('Veuillez entrer un terme de recherche');
                 return;
             }
 
             try {
-                const paramName = type === 'localisation' ? 'localisation' : 'interest';
+                let paramName = 'interest';
+                if (type === 'localisation') {
+                    paramName = 'localisation';
+                } else if (type === 'username') {
+                    paramName = 'username';
+                }
+
                 const response = await fetch(`/api/users/search?${paramName}=${encodeURIComponent(query)}`);
 
                 if (response.ok) {
@@ -364,18 +379,25 @@
 
         function displayResults(users, searchTerm, type) {
             const resultContainer = document.getElementById('resultContainer');
+            
+            let typeText = "le centre d'intérêt";
+            if (type === 'localisation') {
+                typeText = 'la ville';
+            } else if (type === 'username') {
+                typeText = 'le nom d\'utilisateur';
+            }
 
             if (users.length === 0) {
                 resultContainer.innerHTML = `
                     <p class="no-results">
-                        Aucun utilisateur trouvé avec ${type === 'localisation' ? 'la ville' : "le centre d'intérêt"}: <strong>"${searchTerm}"</strong>
+                        Aucun utilisateur trouvé avec ${typeText}: <strong>"${searchTerm}"</strong>
                     </p>
                 `;
                 return;
             }
 
             let html = `<p style="color: #667eea; margin-bottom: 20px; font-weight: 600;">
-                        ${users.length} utilisateur(s) trouvé(s) pour ${type === 'localisation' ? 'la ville' : "le centre d'intérêt"}: <strong>"${searchTerm}"</strong>
+                        ${users.length} utilisateur(s) trouvé(s) pour ${typeText}: <strong>"${searchTerm}"</strong>
                     </p>
                     <div class="users-grid">`;
 

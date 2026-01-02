@@ -1,20 +1,27 @@
 package be.esi.rencontres.user.controller;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+
 import be.esi.rencontres.points.service.PointsService;
+import be.esi.rencontres.user.dto.LeaderboardDTO;
 import be.esi.rencontres.user.dto.UserDTO;
 import be.esi.rencontres.user.model.mongo.UserDoc;
 import be.esi.rencontres.user.service.UserService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Controller
 public class UserController {
@@ -53,32 +60,34 @@ public class UserController {
 
     /**
      * Route GET /leaderboard : Affiche le classement Top 10
-     * Combine MongoDB (infos user) et Redis (scores)
+     * PHASE 2: Utilise Redis ZSET (requête avancée)
      */
     @GetMapping("/leaderboard")
     public String leaderboard(Model model) {
-    
-        List<UserDoc> allUsers = userService.findAll();
-
-        List<LeaderboardEntry> leaderboard = allUsers.stream()
-            .map(user -> {
-            
-                Integer score = pointsService.getPoints(user.getId());
-                return new LeaderboardEntry(
-                    user.getUsername(),
-                    user.getLocalisation(),
-                    score != null ? score : 0
-                );
+        // Récupère le Top 10 depuis Redis ZSET
+        var topUsers = pointsService.getTopUsers(10);
+        
+        List<LeaderboardDTO> leaderboard = topUsers.stream()
+            .map(entry -> {
+                String userId = (String) entry.getValue();
+                Integer score = entry.getScore().intValue();
+                
+                // Récupère les infos depuis MongoDB
+                Optional<UserDoc> userOpt = userService.getUserById(userId);
+                if (userOpt.isPresent()) {
+                    UserDoc user = userOpt.get();
+                    return new LeaderboardDTO(
+                        user.getUsername(),
+                        user.getLocalisation(),
+                        score
+                    );
+                }
+                return null;
             })
-            // Trier par score décroissant 
-            .sorted((e1, e2) -> e2.score.compareTo(e1.score))
-            
-            .limit(10)
+            .filter(entry -> entry != null)
             .collect(Collectors.toList());
 
-        // Envoyer la liste à la vue HTML
         model.addAttribute("leaderboard", leaderboard);
-
         return "leaderboard";
     }
 
@@ -120,16 +129,19 @@ public class UserController {
 
     /**
      * Route GET /api/users/search : API de recherche
+     * Utilise Elasticsearch avec fuzzy matching pour tolérer les fautes d'orthographe
      */
     @GetMapping("/api/users/search")
     @ResponseBody
     public ResponseEntity<List<UserDoc>> search(
             @RequestParam(required = false) String interest,
             @RequestParam(required = false) String localisation,
+            @RequestParam(required = false) String username,
             HttpSession session) {
 
         String trimmedInterest = interest != null ? interest.trim() : null;
         String trimmedLocalisation = localisation != null ? localisation.trim() : null;
+        String trimmedUsername = username != null ? username.trim() : null;
         
         if ((trimmedLocalisation == null || trimmedLocalisation.isBlank()) && localisation != null) {
             trimmedLocalisation = localisation.trim();
@@ -137,29 +149,62 @@ public class UserController {
 
         boolean hasInterest = trimmedInterest != null && !trimmedInterest.isBlank();
         boolean hasLoc = trimmedLocalisation != null && !trimmedLocalisation.isBlank();
+        boolean hasUsername = trimmedUsername != null && !trimmedUsername.isBlank();
 
-        if (!hasInterest && !hasLoc) return ResponseEntity.badRequest().build();
+        if (!hasInterest && !hasLoc && !hasUsername) return ResponseEntity.badRequest().build();
         if (hasInterest && hasLoc) return ResponseEntity.badRequest().build();
 
         String currentUserId = (String) session.getAttribute("userId");
 
+        // Utiliser Elasticsearch avec fuzzy matching pour tolérer les fautes d'orthographe
         if (hasInterest) {
-            return ResponseEntity.ok(userService.findUsersByInterest(trimmedInterest, currentUserId));
+            return ResponseEntity.ok(userService.findUsersByInterestElasticsearch(trimmedInterest, currentUserId));
+        } else if (hasLoc) {
+            return ResponseEntity.ok(userService.findUsersByLocalisationElasticsearch(trimmedLocalisation, currentUserId));
         } else {
-            return ResponseEntity.ok(userService.findUsersByLocalisation(trimmedLocalisation, currentUserId));
+            return ResponseEntity.ok(userService.findUsersByUsername(trimmedUsername, currentUserId));
         }
     }
 
-    // Petite classe interne pour transporter les données vers la vue Leaderboard ---
-    public static class LeaderboardEntry {
-        public String username;
-        public String city;
-        public Integer score;
+    /**
+     * Route GET /api/users/fulltext-search : API de recherche plein texte avec Elasticsearch
+     * Recherche avancée dans username, bio et centres d'intérêt
+     */
+    @GetMapping("/api/users/fulltext-search")
+    @ResponseBody
+    public ResponseEntity<List<UserDoc>> fullTextSearch(
+            @RequestParam String query,
+            HttpSession session) {
 
-        public LeaderboardEntry(String username, String city, Integer score) {
-            this.username = username;
-            this.city = city;
-            this.score = score;
+        if (query == null || query.trim().isBlank()) {
+            return ResponseEntity.badRequest().build();
         }
+
+        String currentUserId = (String) session.getAttribute("userId");
+        List<UserDoc> results = userService.fullTextSearch(query.trim(), currentUserId);
+        
+        return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Route GET /statistics : Affiche la page des statistiques globales
+     */
+    @GetMapping("/statistics")
+    public String statistics(Model model, HttpSession session) {
+        if (session.getAttribute("userId") == null) {
+            return "redirect:/";
+        }
+        return "statistics";
+    }
+
+    /**
+     * Route GET /api/users/{userId}/meetings : Utilisateurs rencontrés
+     * Utilise la requête Neo4j findUsersByMeetings
+     */
+    @GetMapping("/api/users/{userId}/meetings")
+    @ResponseBody
+    public ResponseEntity<List<UserDoc>> getUserMeetings(@PathVariable String userId) {
+        List<UserDoc> metUsers = userService.findUsersMetWith(userId);
+        return ResponseEntity.ok(metUsers);
     }
 }
