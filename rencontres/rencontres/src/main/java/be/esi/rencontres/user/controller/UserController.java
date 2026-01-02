@@ -111,6 +111,17 @@ public class UserController {
     }
 
     /**
+     * Route GET /meetings-history : Affiche l'historique des rencontres
+     */
+    @GetMapping("/meetings-history")
+    public String meetingsHistory(HttpSession session) {
+        if (session.getAttribute("userId") == null) {
+            return "redirect:/";
+        }
+        return "meetings-history";
+    }
+
+    /**
      * Route POST /api/users : Enregistrement
      */
     @PostMapping("/api/users")

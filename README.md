@@ -313,8 +313,8 @@ curl http://localhost:9200/_cluster/health
 ### ✅ Rencontres Simulées
 
 - **Création de rencontre** : Relation Neo4j entre 2 utilisateurs
-- **Attribution automatique de points** : +15 points par rencontre
-- **Historique** : Liste des rencontres passées d'un utilisateur
+- **Attribution automatique de points** : +10 points de base + 5 par intérêt de l'utilisateur rencontré
+- **Historique des rencontres** : Page dédiée affichant toutes les personnes rencontrées par l'utilisateur connecté
 - **Validation** : Empêche les rencontres en double
 
 ### ✅ Points de Sociabilité
