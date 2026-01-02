@@ -1,3 +1,5 @@
+
+
 # 🤝 Rencontres - Application de Création de Relations Humaines
 
 ## 📋 Description du Projet
@@ -271,7 +273,6 @@ mvn spring-boot:run
 
 **L'application sera accessible sur :**
 - Interface Web : `http://localhost:8080`
-- API Swagger : `http://localhost:8080/swagger-ui.html`
 
 ### 3. Vérifier les Connexions
 
@@ -669,7 +670,6 @@ docker exec -it projet_redis redis-cli
 
 ✅ **Démonstration fluide**
 - Interface web fonctionnelle
-- API REST documentée (Swagger)
 - Scénarios d'usage clairs
 
 ---
@@ -683,15 +683,6 @@ docker exec -it projet_redis redis-cli
 ## 📝 Licence
 
 Projet académique - HE2B ESI - Architecture & Bases de Données - 2025-2026
-
----
-
-## 📞 Support
-
-Pour toute question concernant le projet :
-- Consulter la documentation API : `http://localhost:8080/swagger-ui.html`
-- Vérifier les logs de l'application
-- Inspecter les bases de données via leurs interfaces respectives
 
 ---
 
