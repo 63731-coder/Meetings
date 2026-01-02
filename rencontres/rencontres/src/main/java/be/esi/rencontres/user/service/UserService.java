@@ -80,6 +80,23 @@ public class UserService {
     }
 
     /**
+     * Recherche les utilisateurs par nom d'utilisateur (username)
+     *
+     * @param username le nom d'utilisateur à rechercher
+     * @param excludeUserId ID de l'utilisateur à exclure des résultats (peut être null)
+     * @return liste des utilisateurs correspondants
+     */
+    public List<UserDoc> findUsersByUsername(String username, String excludeUserId) {
+        List<UserDoc> users = userMongoRepository.findByUsernameContainingIgnoreCase(username);
+        if (excludeUserId != null) {
+            users = users.stream()
+                    .filter(user -> !user.getId().equals(excludeUserId))
+                    .toList();
+        }
+        return users;
+    }
+
+    /**
      * Recherche les utilisateurs ayant un centre d'intérêt spécifique
      *
      * @param interest le centre d'intérêt à rechercher

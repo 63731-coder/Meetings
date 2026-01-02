@@ -136,10 +136,12 @@ public class UserController {
     public ResponseEntity<List<UserDoc>> search(
             @RequestParam(required = false) String interest,
             @RequestParam(required = false) String localisation,
+            @RequestParam(required = false) String username,
             HttpSession session) {
 
         String trimmedInterest = interest != null ? interest.trim() : null;
         String trimmedLocalisation = localisation != null ? localisation.trim() : null;
+        String trimmedUsername = username != null ? username.trim() : null;
         
         if ((trimmedLocalisation == null || trimmedLocalisation.isBlank()) && localisation != null) {
             trimmedLocalisation = localisation.trim();
@@ -147,8 +149,9 @@ public class UserController {
 
         boolean hasInterest = trimmedInterest != null && !trimmedInterest.isBlank();
         boolean hasLoc = trimmedLocalisation != null && !trimmedLocalisation.isBlank();
+        boolean hasUsername = trimmedUsername != null && !trimmedUsername.isBlank();
 
-        if (!hasInterest && !hasLoc) return ResponseEntity.badRequest().build();
+        if (!hasInterest && !hasLoc && !hasUsername) return ResponseEntity.badRequest().build();
         if (hasInterest && hasLoc) return ResponseEntity.badRequest().build();
 
         String currentUserId = (String) session.getAttribute("userId");
@@ -156,8 +159,10 @@ public class UserController {
         // Utiliser Elasticsearch avec fuzzy matching pour tolérer les fautes d'orthographe
         if (hasInterest) {
             return ResponseEntity.ok(userService.findUsersByInterestElasticsearch(trimmedInterest, currentUserId));
-        } else {
+        } else if (hasLoc) {
             return ResponseEntity.ok(userService.findUsersByLocalisationElasticsearch(trimmedLocalisation, currentUserId));
+        } else {
+            return ResponseEntity.ok(userService.findUsersByUsername(trimmedUsername, currentUserId));
         }
     }
 
