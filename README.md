@@ -56,7 +56,6 @@ Le système est structuré en **3 services métiers principaux** :
 **Pourquoi MongoDB ?**
 - Stockage de documents JSON flexibles
 - Idéal pour les données utilisateur avec schéma évolutif
-- Requêtes sur des tableaux (centres d'intérêt)
 
 **Données stockées :**
 ```json
@@ -69,13 +68,6 @@ Le système est structuré en **3 services métiers principaux** :
   "localisation": "Bruxelles"
 }
 ```
-
-**Requêtes spécifiques :**
-- Recherche par centres d'intérêt : `findByInterestsContainingIgnoreCase()`
-- Statistiques sur les centres d'intérêt populaires (agrégations)
-- Comptage d'utilisateurs par localisation
-
----
 
 ### 2. **Neo4j** - Graphe de Relations Sociales
 
@@ -129,7 +121,7 @@ ORDER BY m.meetingDate DESC
 ### 3. **Redis** - Cache et Leaderboard Temps Réel
 
 **Pourquoi Redis ?**
-- Performances ultra-rapides (in-memory)
+- Performances ultra-rapides
 - Structures de données optimisées (Sorted Sets pour classements)
 - Idéal pour les données volatiles et fréquemment accédées
 
@@ -147,10 +139,10 @@ ORDER BY m.meetingDate DESC
 **Opérations avancées Redis :**
 
 ```java
-// Top 10 utilisateurs (O(log(N)+M) - très rapide)
+// Top 10 utilisateurs
 ZREVRANGE leaderboard 0 9 WITHSCORES
 
-// Rang d'un utilisateur (O(log(N)))
+// Rang d'un utilisateur
 ZREVRANK leaderboard {userId}
 
 // Score total
@@ -158,10 +150,8 @@ GET score:{userId}
 ```
 
 **Avantages :**
-- ⚡ Classement en temps réel sans requête SQL coûteuse
-- 🔄 Mise à jour atomique des scores
-- 📊 Récupération du top N en O(log(N)+M)
-
+- Classement en temps réel sans requête SQL coûteuse
+- Mise à jour atomique des scores
 ---
 
 ### 4. **Elasticsearch** - Recherche Plein Texte
@@ -201,7 +191,7 @@ findByInterests(interest)
 
 ---
 
-## 🔄 Stratégie de Synchronisation (Triple Écriture)
+## Stratégie de Synchronisation (Triple Écriture)
 
 ### Principe de la Triple Écriture
 
@@ -224,21 +214,37 @@ public UserDoc registerUser(UserDoc user) {
 
 ### Justification de l'Architecture
 
-| Besoin | Système | Raison |
-|--------|---------|--------|
-| Lecture complète d'un utilisateur | **MongoDB** | Source de vérité, schéma flexible |
-| Analyse de relations sociales | **Neo4j** | Requêtes de graphe optimisées |
-| Recherche plein texte | **Elasticsearch** | Indexation inversée, pertinence |
-| Classement temps réel | **Redis** | In-memory, Sorted Sets |
+#### A. UserService (Gestion des profils et intérêts)
 
-**Cohérence des données :**
-- Consistance éventuelle acceptée (use case social, non critique)
-- Retry possible en cas d'échec d'écriture
-- MongoDB comme source de vérité pour reconstruction
+**Technologies utilisées :** MongoDB (1) + Neo4j (2) + Elasticsearch (4)
+
+**Justifications :**
+
+- **MongoDB** : Les profils utilisateurs et leurs centres d'intérêt sont des données semi-structurées qui peuvent évoluer. Le modèle Document permet de stocker des listes d'intérêts de tailles variables sans jointures complexes.
+
+- **Neo4j** : Pour modéliser les liens sociaux entre utilisateurs. C'est ici que l'on gère qui connaît qui, facilitant ainsi la recommandation de nouvelles rencontres.
+
+- **Elasticsearch** : Répond à la fonctionnalité "Recherche". Il permet une recherche plein texte performante sur les bios ou les intérêts, ce qu'une base classique fait mal.
 
 ---
 
-## 🚀 Installation et Configuration
+#### B. MeetingService (Gestion des rencontres)
+
+**Technologie utilisée :** Neo4j (2)
+
+**Justification :** Une rencontre est par définition un graphe (un lien entre deux nœuds "Utilisateur" avec des propriétés comme le lieu ou la date). Utiliser Neo4j permet de parcourir facilement le réseau pour voir, par exemple, si deux personnes ont des "amis" communs ou ont déjà participé à des rencontres similaires. Cela répond à l'attente du client sur l'"analyse des liens créés".
+
+---
+
+#### C. PointsService (Points de sociabilité)
+
+**Technologie utilisée :** Redis (3)
+
+**Justification :** Le client demande un suivi des points de sociabilité. Redis est une base Clé-Valeur en mémoire, idéale pour des compteurs ultra-rapides. Comme les points peuvent être mis à jour très souvent lors de simulations, Redis offre une latence minimale et une performance maximale pour ces calculs atomiques.
+
+---
+
+## Installation et Configuration
 
 ### Prérequis
 
@@ -257,10 +263,10 @@ docker ps
 ```
 
 **Services lancés :**
-- MongoDB : `localhost:27017`
-- Neo4j : `localhost:7474` (interface), `localhost:7687` (bolt)
-- Redis : `localhost:6379`
-- Elasticsearch : `localhost:9200`
+- MongoDB
+- Neo4j
+- Redis
+- Elasticsearch
 
 ### 2. Compiler et Lancer l'Application
 
@@ -293,7 +299,7 @@ curl http://localhost:9200/_cluster/health
 
 ---
 
-## 📚 Fonctionnalités Implémentées
+## Fonctionnalités Implémentées
 
 ### ✅ Gestion des Utilisateurs
 
@@ -301,20 +307,19 @@ curl http://localhost:9200/_cluster/health
 - **Centres d'intérêt** : Tableau de tags libres
 - **Recherche** : 
   - Par nom (MongoDB)
-  - Par bio (Elasticsearch)
   - Par centres d'intérêt (MongoDB + Elasticsearch)
   - Par localisation (Neo4j)
 
 ### ✅ Rencontres Simulées
 
 - **Création de rencontre** : Relation Neo4j entre 2 utilisateurs
-- **Attribution automatique de points** : +10 points par rencontre
-- **Historique** : Liste des rencontres passées d'un utilisateur
+- **Attribution automatique de points** : +10 points de base + 5 par intérêt de l'utilisateur rencontré
+- **Historique des rencontres** : Page dédiée affichant toutes les personnes rencontrées par l'utilisateur connecté
 - **Validation** : Empêche les rencontres en double
 
 ### ✅ Points de Sociabilité
 
-- **Attribution automatique** : 10 points par rencontre
+- **Attribution automatique** : 15 points par rencontre
 - **Stockage Redis** : Scores individuels + leaderboard
 - **Classement** : Top 10 en temps réel
 - **Rang utilisateur** : Position dans le classement global
@@ -341,6 +346,23 @@ curl http://localhost:9200/_cluster/health
 - Agrégations sur centres d'intérêt populaires
 - Comptage d'utilisateurs par localisation
 - Recherche dans tableaux (interests)
+
+### ✅ Requêtes Avancées (Phase 3)
+
+#### Synchronisation Multi-Bases
+- **Triple écriture** : Lors de la création d'un utilisateur, les données sont automatiquement répliquées dans MongoDB (source de vérité), Neo4j (graphe social), et Elasticsearch (moteur de recherche)
+- **Cohérence transactionnelle** : Mécanisme de rollback en cas d'échec d'écriture dans l'une des bases
+- **Idempotence** : Les opérations de synchronisation peuvent être rejouées sans effet de bord
+
+#### Requêtes Cross-Database
+- **Recherche enrichie** : Recherche Elasticsearch combinée avec détails MongoDB et relations Neo4j
+- **Recommandations intelligentes** : Utilisation du graphe Neo4j pour suggérer des utilisateurs partageant des centres d'intérêt communs (MongoDB)
+- **Leaderboard contextuel** : Classement Redis filtré par localisation (Neo4j) ou centres d'intérêt (MongoDB)
+
+#### Optimisations Avancées
+- **Cache Redis** : Mise en cache des résultats de recherche fréquents pour réduire la charge sur Elasticsearch
+- **Indexation sélective** : Seuls les champs pertinents sont indexés dans Elasticsearch (username, bio, interests)
+- **Dénormalisation contrôlée** : Réplication stratégique des données pour éviter les jointures coûteuses
 
 ### ✅ Statistiques
 
