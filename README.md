@@ -2,6 +2,11 @@
 
 # Rencontres - Application de Création de Relations Humaines
 
+- 63731 - Nicoleta Opre
+- 63737 - Fabiola Prenga
+- 60298 - Alessian Noje
+- groupe E112
+
 ## Description du Projet
 
 Application de gestion de rencontres sociales visant à encourager les interactions humaines réelles. Le système permet aux utilisateurs de découvrir d'autres personnes partageant des centres d'intérêt communs, de simuler des rencontres, et d'accumuler des points de sociabilité.
@@ -49,7 +54,7 @@ Le système est structuré en **3 services métiers principaux** :
 
 ---
 
-## 💾 Répartition des Données
+## Répartition des Données
 
 ### 1. **MongoDB** - Données Structurées des Utilisateurs
 
