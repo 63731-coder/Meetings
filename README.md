@@ -1,21 +1,18 @@
+# Rencontres – Human Relationship Creation Application
 
+* Nicoleta Opre
+* Fabiola Prenga
+* Alessian Noje
 
-# Rencontres - Application de Création de Relations Humaines
+## Project Description
 
-- 63731 - Nicoleta Opre
-- 63737 - Fabiola Prenga
-- 60298 - Alessian Noje
-- groupe E112
+A social meeting management application aimed at encouraging real human interactions. The system allows users to discover other people who share common interests, simulate meetings, and accumulate sociability points.
 
-## Description du Projet
+## General Architecture
 
-Application de gestion de rencontres sociales visant à encourager les interactions humaines réelles. Le système permet aux utilisateurs de découvrir d'autres personnes partageant des centres d'intérêt communs, de simuler des rencontres, et d'accumuler des points de sociabilité.
+### Multi-Database System
 
-## Architecture Générale
-
-### Système Multi-Bases de Données
-
-Le projet utilise **4 systèmes de gestion de données différents**, chacun optimisé pour un type spécifique d'opérations :
+The project uses **4 different data management systems**, each optimized for a specific type of operation:
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -27,270 +24,291 @@ Le projet utilise **4 systèmes de gestion de données différents**, chacun opt
 │         │                 │                 │             │
 └─────────┼─────────────────┼─────────────────┼─────────────┘
           │                 │                 │
-    ┌─────┴───── ┐          │                 │
-    │     |      │          │                 │
-┌───▼───┐ | ┌────▼───┐  ┌───▼ ───┐        ┌───▼──┐
-│MongoDB│ | │Neo4j   │  │Neo4j   │        │Redis │
-└───────┘ | └────┬───┘  └────────┘        └──────┘
+    ┌─────┴─────┐           │                 │
+    │     |     │           │                 │
+┌───▼───┐ | ┌────▼───┐  ┌───▼────┐        ┌───▼───┐
+│MongoDB│ | │Neo4j   │  │Neo4j   │        │Redis  │
+└───────┘ | └────┬───┘  └────────┘        └───────┘
    (1)    |    (2)          (2)                (3)
           |
        ┌───
        │
-   ┌───▼─────────
+   ┌───▼─────────┐
    │Elasticsearch│
    └─────────────┘
        (4)
 ```
 
-### Services Métiers
+### Business Services
 
-Le système est structuré en **3 services métiers principaux** :
+The system is structured around **3 main business services**:
 
-| Service | Responsabilité | Bases utilisées |
-|---------|---------------|-----------------|
-| **UserService** | Gestion des utilisateurs et centres d'intérêt | MongoDB, Neo4j, Elasticsearch |
-| **MeetingService** | Gestion des rencontres entre utilisateurs | Neo4j |
-| **PointsService** | Gestion des points et classements | Redis |
+| Service            | Responsibility                       | Databases Used                |
+| ------------------ | ------------------------------------ | ----------------------------- |
+| **UserService**    | User and interest management         | MongoDB, Neo4j, Elasticsearch |
+| **MeetingService** | Management of meetings between users | Neo4j                         |
+| **PointsService**  | Points and leaderboard management    | Redis                         |
 
 ---
 
-## Répartition des Données
+## Data Distribution
 
-### 1. **MongoDB** - Données Structurées des Utilisateurs
+### 1. **MongoDB** – Structured User Data
 
-**Pourquoi MongoDB ?**
-- Stockage de documents JSON flexibles
-- Idéal pour les données utilisateur avec schéma évolutif
+**Why MongoDB?**
 
-**Données stockées :**
+* Flexible JSON document storage
+* Ideal for user data with an evolving schema
+
+**Stored data:**
+
 ```json
 {
   "_id": "507f1f77bcf86cd799439011",
   "username": "Alice",
   "email": "alice@example.com",
-  "bio": "Passionnée de cuisine et de randonnée",
-  "interests": ["cuisine", "randonnée", "photographie"],
-  "localisation": "Bruxelles"
+  "bio": "Passionate about cooking and hiking",
+  "interests": ["cooking", "hiking", "photography"],
+  "location": "Brussels"
 }
 ```
 
-### 2. **Neo4j** - Graphe de Relations Sociales
+### 2. **Neo4j** – Social Relationship Graph
 
-**Pourquoi Neo4j ?**
-- Modélisation naturelle des relations entre personnes
-- Requêtes de graphe optimisées (recommandations, chemins)
-- Analyse des réseaux sociaux
+**Why Neo4j?**
 
-**Modèle de graphe :**
+* Natural modeling of relationships between people
+* Optimized graph queries (recommendations, paths)
+* Social network analysis
+
+**Graph model:**
+
 ```cypher
-(User1:User {id, username, bio, interests, localisation})
+(User1:User {id, username, bio, interests, location})
     -[:MET {meetingDate, location}]->
-(User2:User {id, username, bio, interests, localisation})
+(User2:User {id, username, bio, interests, location})
 ```
 
-**Requêtes avancées implémentées :**
+**Implemented advanced queries:**
 
-1. **Comptage de rencontres** :
+1. **Meeting count:**
+
 ```cypher
-MATCH (u:User {id: $userId})-[:MET]-() 
+MATCH (u:User {id: $userId})-[:MET]-()
 RETURN count(*) as meetingCount
 ```
 
-2. **Utilisateurs les plus actifs** :
+2. **Most active users:**
+
 ```cypher
-MATCH (u:User)-[m:MET]-() 
-RETURN u.id as userId, count(m) as meetingCount 
-ORDER BY meetingCount DESC 
+MATCH (u:User)-[m:MET]-()
+RETURN u.id as userId, count(m) as meetingCount
+ORDER BY meetingCount DESC
 LIMIT 10
 ```
 
-3. **Recommandations basées sur connexions communes** :
+3. **Recommendations based on common connections:**
+
 ```cypher
-MATCH (me:User {id: $userId})-[:MET]-(common)-[:MET]-(suggestion) 
-WHERE me <> suggestion 
-AND NOT (me)-[:MET]-(suggestion) 
-RETURN DISTINCT suggestion.id, count(common) as commonMeetings 
+MATCH (me:User {id: $userId})-[:MET]-(common)-[:MET]-(suggestion)
+WHERE me <> suggestion
+AND NOT (me)-[:MET]-(suggestion)
+RETURN DISTINCT suggestion.id, count(common) as commonMeetings
 ORDER BY commonMeetings DESC
 ```
 
-4. **Rencontres récentes** :
+4. **Recent meetings:**
+
 ```cypher
-MATCH (u1:User)-[m:MET]-(u2:User) 
-WHERE m.meetingDate > $since 
-RETURN m, u1, u2 
+MATCH (u1:User)-[m:MET]-(u2:User)
+WHERE m.meetingDate > $since
+RETURN m, u1, u2
 ORDER BY m.meetingDate DESC
 ```
 
 ---
 
-### 3. **Redis** - Cache et Leaderboard Temps Réel
+### 3. **Redis** – Real-Time Cache and Leaderboard
 
-**Pourquoi Redis ?**
-- Performances ultra-rapides
-- Structures de données optimisées (Sorted Sets pour classements)
-- Idéal pour les données volatiles et fréquemment accédées
+**Why Redis?**
 
-**Structures utilisées :**
+* Ultra-fast performance
+* Optimized data structures (Sorted Sets for leaderboards)
+* Ideal for volatile and frequently accessed data
 
-1. **Scores individuels** (String) :
-   - Clé : `score:{userId}`
-   - Valeur : nombre de points
+**Used structures:**
 
-2. **Leaderboard** (Sorted Set - ZSET) :
-   - Clé : `leaderboard`
-   - Membres : userIds
-   - Scores : points totaux
+1. **Individual scores** (String):
 
-**Opérations avancées Redis :**
+   * Key: `score:{userId}`
+   * Value: number of points
+
+2. **Leaderboard** (Sorted Set – ZSET):
+
+   * Key: `leaderboard`
+   * Members: userIds
+   * Scores: total points
+
+**Advanced Redis operations:**
 
 ```java
-// Top 10 utilisateurs
+// Top 10 users
 ZREVRANGE leaderboard 0 9 WITHSCORES
 
-// Rang d'un utilisateur
+// User rank
 ZREVRANK leaderboard {userId}
 
-// Score total
+// Total score
 GET score:{userId}
 ```
 
-**Avantages :**
-- Classement en temps réel sans requête SQL coûteuse
-- Mise à jour atomique des scores
+**Advantages:**
+
+* Real-time ranking without costly SQL queries
+* Atomic score updates
+
 ---
 
-### 4. **Elasticsearch** - Recherche Plein Texte
+### 4. **Elasticsearch** – Full-Text Search
 
-**Pourquoi Elasticsearch ?**
-- Moteur de recherche full-text optimisé
-- Recherche floue et pertinence
-- Indexation inversée pour performances
+**Why Elasticsearch?**
 
-**Données indexées :**
+* Optimized full-text search engine
+* Fuzzy search and relevance scoring
+* Inverted indexing for high performance
+
+**Indexed data:**
+
 ```json
 {
   "id": "507f1f77bcf86cd799439011",
   "username": "Alice",
-  "bio": "Passionnée de cuisine et de randonnée",
-  "interests": ["cuisine", "randonnée", "photographie"],
-  "localisation": "Bruxelles"
+  "bio": "Passionate about cooking and hiking",
+  "interests": ["cooking", "hiking", "photography"],
+  "location": "Brussels"
 }
 ```
 
-**Requêtes de recherche :**
+**Search queries:**
 
-1. **Recherche plein texte** :
+1. **Full-text search:**
+
 ```java
 findByUsernameContainingOrBioContaining(query, query)
 ```
 
-2. **Recherche par centre d'intérêt** :
+2. **Search by interest:**
+
 ```java
 findByInterests(interest)
 ```
 
-3. **Recherche multi-champs avancée** :
+3. **Advanced multi-field search:**
+
 ```java
 @Query("{\"multi_match\": {\"query\": \"?0\", \"fields\": [\"username^2\", \"bio\", \"interests\"]}}")
 ```
 
 ---
 
-## Stratégie de Synchronisation (Triple Écriture)
+## Synchronization Strategy (Triple Write)
 
-### Principe de la Triple Écriture
+### Triple Write Principle
 
-Lors de la création d'un utilisateur, les données sont répliquées dans les 3 systèmes :
+When a user is created, the data is replicated across the 3 systems:
 
 ```java
 public UserDoc registerUser(UserDoc user) {
-    // 1. Source de vérité : MongoDB (données complètes)
+    // 1. Source of truth: MongoDB (complete data)
     UserDoc savedUser = userMongoRepository.save(user);
     
-    // 2. Graphe de relations : Neo4j
+    // 2. Relationship graph: Neo4j
     createNeo4jNode(savedUser);
     
-    // 3. Moteur de recherche : Elasticsearch
+    // 3. Search engine: Elasticsearch
     indexUserInElasticsearch(savedUser);
     
     return savedUser;
 }
 ```
 
-### Justification de l'Architecture
+### Architecture Justification
 
-#### A. UserService (Gestion des profils et intérêts)
+#### A. UserService (Profile and Interest Management)
 
-**Technologies utilisées :** MongoDB (1) + Neo4j (2) + Elasticsearch (4)
+**Technologies used:** MongoDB (1) + Neo4j (2) + Elasticsearch (4)
 
-**Justifications :**
+**Justifications:**
 
-- **MongoDB** : Les profils utilisateurs et leurs centres d'intérêt sont des données semi-structurées qui peuvent évoluer. Le modèle Document permet de stocker des listes d'intérêts de tailles variables sans jointures complexes.
+* **MongoDB**: User profiles and interests are semi-structured data that may evolve. The document model allows storing variable-length interest lists without complex joins.
 
-- **Neo4j** : Pour modéliser les liens sociaux entre utilisateurs. C'est ici que l'on gère qui connaît qui, facilitant ainsi la recommandation de nouvelles rencontres.
+* **Neo4j**: Used to model social links between users. This is where "who knows whom" is managed, making it easier to recommend new meetings.
 
-- **Elasticsearch** : Répond à la fonctionnalité "Recherche". Il permet une recherche plein texte performante sur les bios ou les intérêts, ce qu'une base classique fait mal.
-
----
-
-#### B. MeetingService (Gestion des rencontres)
-
-**Technologie utilisée :** Neo4j (2)
-
-**Justification :** Une rencontre est par définition un graphe (un lien entre deux nœuds "Utilisateur" avec des propriétés comme le lieu ou la date). Utiliser Neo4j permet de parcourir facilement le réseau pour voir, par exemple, si deux personnes ont des "amis" communs ou ont déjà participé à des rencontres similaires. Cela répond à l'attente du client sur l'"analyse des liens créés".
+* **Elasticsearch**: Supports the "Search" feature by providing efficient full-text search on bios and interests, which traditional databases handle poorly.
 
 ---
 
-#### C. PointsService (Points de sociabilité)
+#### B. MeetingService (Meeting Management)
 
-**Technologie utilisée :** Redis (3)
+**Technology used:** Neo4j (2)
 
-**Justification :** Le client demande un suivi des points de sociabilité. Redis est une base Clé-Valeur en mémoire, idéale pour des compteurs ultra-rapides. Comme les points peuvent être mis à jour très souvent lors de simulations, Redis offre une latence minimale et une performance maximale pour ces calculs atomiques.
+**Justification:** A meeting is inherently a graph (a link between two "User" nodes with properties such as location or date). Using Neo4j makes it easy to traverse the network to check, for example, whether two people share mutual connections or have already participated in similar meetings. This directly addresses the client’s requirement for "analysis of created links".
 
 ---
 
-## Installation et Configuration
+#### C. PointsService (Sociability Points)
 
-### Prérequis
+**Technology used:** Redis (3)
 
-- Java 17+
-- Maven 3.6+
-- Docker & Docker Compose
+**Justification:** The client requires tracking sociability points. Redis is an in-memory key-value store, ideal for ultra-fast counters. Since points can be updated very frequently during simulations, Redis provides minimal latency and maximum performance for these atomic operations.
 
-### 1. Démarrer l'Infrastructure
+---
+
+## Installation and Configuration
+
+### Prerequisites
+
+* Java 17+
+* Maven 3.6+
+* Docker & Docker Compose
+
+### 1. Start the Infrastructure
 
 ```bash
-# Démarrer tous les services de données
+# Start all data services
 docker-compose up -d
 
-# Vérifier que les services sont démarrés
+# Verify that services are running
 docker ps
 ```
 
-**Services lancés :**
-- MongoDB
-- Neo4j
-- Redis
-- Elasticsearch
+**Started services:**
 
-### 2. Compiler et Lancer l'Application
+* MongoDB
+* Neo4j
+* Redis
+* Elasticsearch
+
+### 2. Build and Run the Application
 
 ```bash
 cd rencontres/rencontres
 
-# Compiler le projet
+# Build the project
 mvn clean install
 
-# Lancer l'application
+# Run the application
 mvn spring-boot:run
 ```
 
-**L'application sera accessible sur :**
-- Interface Web : `http://localhost:8080`
+**The application will be available at:**
 
-### 3. Vérifier les Connexions
+* Web Interface: `http://localhost:8080`
+
+### 3. Verify Connections
 
 #### Neo4j Browser
+
 ```
 URL: http://localhost:7474
 Username: neo4j
@@ -298,150 +316,90 @@ Password: password
 ```
 
 #### Elasticsearch
+
 ```bash
 curl http://localhost:9200/_cluster/health
 ```
 
 ---
 
-## Fonctionnalités Implémentées
+## Implemented Features
 
-### ✅ Gestion des Utilisateurs
+### ✅ User Management
 
-- **Inscription** : Création d'utilisateur avec triple écriture
-- **Centres d'intérêt** : Tableau de tags libres
-- **Recherche** : 
-  - Par nom (MongoDB)
-  - Par centres d'intérêt (MongoDB + Elasticsearch)
-  - Par localisation (Neo4j)
+* **Registration**: User creation with triple write
+* **Interests**: Free-tag interest array
+* **Search**:
 
-### ✅ Rencontres Simulées
+  * By name (MongoDB)
+  * By interests (MongoDB + Elasticsearch)
+  * By location (Neo4j)
 
-- **Création de rencontre** : Relation Neo4j entre 2 utilisateurs
-- **Attribution automatique de points** : +10 points de base + 5 par intérêt de l'utilisateur rencontré
-- **Historique des rencontres** : Page dédiée affichant toutes les personnes rencontrées par l'utilisateur connecté
-- **Validation** : Empêche les rencontres en double
+### ✅ Simulated Meetings
 
-### ✅ Points de Sociabilité
+* **Meeting creation**: Neo4j relationship between 2 users
+* **Automatic point allocation**: +10 base points + 5 per interest of the met user
+* **Meeting history**: Dedicated page showing all users met by the logged-in user
+* **Validation**: Prevents duplicate meetings
 
-- **Attribution automatique** : 15 points par rencontre
-- **Stockage Redis** : Scores individuels + leaderboard
-- **Classement** : Top 10 en temps réel
-- **Rang utilisateur** : Position dans le classement global
+### ✅ Sociability Points
 
-### ✅ Requêtes Avancées (Phase 2)
+* **Automatic allocation**: 15 points per meeting
+* **Redis storage**: Individual scores + leaderboard
+* **Ranking**: Real-time Top 10
+* **User rank**: Position in the global leaderboard
+
+### ✅ Advanced Queries (Phase 2)
 
 #### Neo4j
-- Comptage de rencontres par utilisateur (degré du nœud)
-- Utilisateurs les plus actifs (top N)
-- Recommandations basées sur connexions communes (distance 2)
-- Rencontres récentes avec filtrage temporel
+
+* Meeting count per user (node degree)
+* Most active users (Top N)
+* Recommendations based on common connections (distance 2)
+* Recent meetings with time filtering
 
 #### Redis
-- Leaderboard avec Sorted Set (ZSET)
-- Rang d'un utilisateur (ZREVRANK)
-- Top N utilisateurs (ZREVRANGE)
+
+* Leaderboard with Sorted Set (ZSET)
+* User rank (ZREVRANK)
+* Top N users (ZREVRANGE)
 
 #### Elasticsearch
-- Recherche plein texte multi-champs
-- Boost de pertinence (username^2)
-- Recherche floue sur bio et intérêts
+
+* Multi-field full-text search
+* Relevance boosting (username^2)
+* Fuzzy search on bio and interests
 
 #### MongoDB
-- Agrégations sur centres d'intérêt populaires
-- Comptage d'utilisateurs par localisation
-- Recherche dans tableaux (interests)
 
-### ✅ Requêtes Avancées (Phase 3)
+* Aggregations on popular interests
+* User count by location
+* Search within arrays (interests)
 
-#### Synchronisation Multi-Bases
-- **Triple écriture** : Lors de la création d'un utilisateur, les données sont automatiquement répliquées dans MongoDB (source de vérité), Neo4j (graphe social), et Elasticsearch (moteur de recherche)
-- **Cohérence transactionnelle** : Mécanisme de rollback en cas d'échec d'écriture dans l'une des bases
-- **Idempotence** : Les opérations de synchronisation peuvent être rejouées sans effet de bord
+### ✅ Advanced Queries (Phase 3)
 
-#### Requêtes Cross-Database
-- **Recherche enrichie** : Recherche Elasticsearch combinée avec détails MongoDB et relations Neo4j
-- **Recommandations intelligentes** : Utilisation du graphe Neo4j pour suggérer des utilisateurs partageant des centres d'intérêt communs (MongoDB)
-- **Leaderboard contextuel** : Classement Redis filtré par localisation (Neo4j) ou centres d'intérêt (MongoDB)
+#### Multi-Database Synchronization
 
-#### Optimisations Avancées
-- **Cache Redis** : Mise en cache des résultats de recherche fréquents pour réduire la charge sur Elasticsearch
-- **Indexation sélective** : Seuls les champs pertinents sont indexés dans Elasticsearch (username, bio, interests)
-- **Dénormalisation contrôlée** : Réplication stratégique des données pour éviter les jointures coûteuses
+* **Triple write**: When a user is created, data is automatically replicated in MongoDB (source of truth), Neo4j (social graph), and Elasticsearch (search engine)
+* **Transactional consistency**: Rollback mechanism in case of a write failure in one of the databases
+* **Idempotency**: Synchronization operations can be replayed without side effects
 
-### ✅ Statistiques
+#### Cross-Database Queries
 
-- Top centres d'intérêt
-- Répartition des utilisateurs par localisation
-- Utilisateurs les plus sociables (nombre d'intérêts)
-- Statistiques globales (users, meetings, total points)
+* **Enriched search**: Elasticsearch search combined with MongoDB details and Neo4j relationships
+* **Smart recommendations**: Use of the Neo4j graph to suggest users sharing common interests (MongoDB)
+* **Contextual leaderboard**: Redis leaderboard filtered by location (Neo4j) or interests (MongoDB)
 
----
+#### Advanced Optimizations
 
-## 📂 Structure du Projet
+* **Redis cache**: Caching frequent search results to reduce Elasticsearch load
+* **Selective indexing**: Only relevant fields are indexed in Elasticsearch (username, bio, interests)
+* **Controlled denormalization**: Strategic data replication to avoid costly joins
 
-```
-rencontres/
-├── src/main/java/be/esi/rencontres/
-│   ├── RencontresApplication.java
-│   │
-│   ├── auth/
-│   │   └── controller/
-│   │       └── AuthController.java          # Login/Logout
-│   │
-│   ├── user/
-│   │   ├── controller/
-│   │   │   ├── UserController.java          # CRUD utilisateurs
-│   │   │   └── StatisticsController.java    # Statistiques
-│   │   ├── service/
-│   │   │   └── UserService.java             # Logique métier + triple écriture
-│   │   ├── repository/
-│   │   │   ├── UserMongoRepository.java     # MongoDB
-│   │   │   ├── UserNeo4jRepository.java     # Neo4j
-│   │   │   └── UserElasticsearchRepository.java  # Elasticsearch
-│   │   ├── model/
-│   │   │   ├── mongo/UserDoc.java           # Document MongoDB
-│   │   │   ├── neo4j/UserNode.java          # Nœud Neo4j
-│   │   │   └── elasticsearch/UserDocument.java   # Document ES
-│   │   └── dto/
-│   │
-│   ├── meeting/
-│   │   ├── controller/
-│   │   │   ├── MeetingController.java       # CRUD rencontres
-│   │   │   └── MeetingAdvancedController.java  # Requêtes avancées
-│   │   ├── service/
-│   │   │   └── MeetingService.java          # Logique métier
-│   │   ├── repository/
-│   │   │   └── MeetingNeo4jRepository.java  # Relations Neo4j
-│   │   └── model/
-│   │       └── neo4j/MeetingRelationship.java
-│   │
-│   ├── points/
-│   │   ├── controller/
-│   │   │   └── PointsController.java        # Leaderboard
-│   │   ├── service/
-│   │   │   └── PointsService.java           # Logique métier
-│   │   └── repository/
-│   │       └── PointsRedisRepository.java   # Opérations Redis
-│   │
-│   └── infrastructure/
-│       └── config/
-│           ├── RedisConfig.java             # Configuration Redis
-│           └── ElasticsearchConfig.java     # Configuration Elasticsearch
-│
-├── src/main/resources/
-│   ├── application.properties               # Configuration globale
-│   └── templates/
-│       ├── login.html
-│       ├── register.html
-│       ├── users.html
-│       ├── search.html
-│       ├── detail.html
-│       ├── leaderboard.html
-│       └── statistics.html
-│
-├── docker-compose.yml                       # Infrastructure Docker
-└── pom.xml                                  # Dépendances Maven
-```
+### ✅ Statistics
 
----
+* Top interests
+* User distribution by location
+* Most sociable users (number of interests)
+* Global statistics (users, meetings, total points)
+
